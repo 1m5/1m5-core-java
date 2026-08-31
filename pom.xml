@@ -60,12 +60,24 @@
 		</dependency>
 
 		<!--
+		  I2P protocol service. Wrapped by network.onemfive.core.protocol.I2PProtocolService
+		  and registered by the Daemon only when 1m5.i2p.enabled=true (an embedded I2P
+		  router reseeds on first start and takes minutes). Brings net.i2p:i2p / router /
+		  streaming / mstreaming.
+		-->
+		<dependency>
+			<groupId>resolvingarchitecture</groupId>
+			<artifactId>i2p</artifactId>
+			<version>1.7.1</version>
+		</dependency>
+
+		<!--
 		  Added as the corresponding capability is implemented (see TODO.md):
 		    resolvingarchitecture:notification  - status/event pub-sub (NotificationService)
 		    resolvingarchitecture:http-client   - localhost Envelope-JSON API for 1m5-desktop-java
 		    resolvingarchitecture:did           - legacy OpenPGP identity (read-only, migration)
 		    resolvingarchitecture:network-manager - InMemoryPeerDB / P2PRelationship for the router
-		    resolvingarchitecture:i2p, tor-client, bluetooth-client - default ProtocolService impls
+		    resolvingarchitecture:tor-client, bluetooth-client - more default ProtocolService impls
 		    resolvingarchitecture:btc, dex      - Bitcoin business services
 		-->
 

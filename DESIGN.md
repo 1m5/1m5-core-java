@@ -184,11 +184,32 @@ consumer of the slip. A FIFO variant is possible but out of scope.
 
 Concrete `ProtocolService` implementations are **per platform**:
 
-- default JVM daemon: wrap the `resolvingarchitecture` network-client jars
-  (`ra.i2p`, `ra.tor`, `ra.http`, `ra.bluetooth`) or the local `i2p-java` /
-  `tor-java` (staged, [`TODO.md`](TODO.md));
+- default JVM daemon: wrap the `resolvingarchitecture` network-client jars via
+  `network.onemfive.core.protocol.NetworkServiceProtocol` (below); `ra.tor`,
+  `ra.bluetooth` staged, [`TODO.md`](TODO.md);
 - Android host: adapters over the embedded I2P router (`net.i2p:router`) and
   `tor-android`, implementing this same class and registering on the same bus.
+
+### `NetworkServiceProtocol` — bridging `ra.common.network.NetworkService`
+
+`i2p-java`, `tor-client`, and `bluetooth-client` all extend
+`ra.common.network.NetworkService` (the RA base: a `NetworkState` with network +
+`NetworkStatus` + local/remote peers, `updateNetworkStatus`, `OPERATION_SEND`).
+That is *not* a 1M5 `ProtocolService`, so the router would not discover it.
+
+`NetworkServiceProtocol` (abstract, `extends ProtocolService`) adapts one:
+
+- it is the bus-registered service; it *owns* the wrapped `NetworkService` (not
+  bus-registered), hands it the same `MessageProducer` so its inbound envelopes
+  flow back onto the bus, and forwards `start` / `shutdown`;
+- `getNetwork()` / `getNetworkStatus()` read the wrapped service's `NetworkState`;
+- `send(Envelope)` delegates to a subclass `sendOut(...)` (the wrapped service's
+  public `sendOut`).
+
+`I2PProtocolService` is `NetworkServiceProtocol` around `ra.i2p.I2PService`. The
+`Daemon` registers it only when `1m5.i2p.enabled=true` (an embedded I2P router
+reseeds on first start and takes minutes; router mode is set by `ra.i2p.mode` =
+`embedded` | `local` | `auto`). Tor and Bluetooth adapters follow the same shape.
 
 ---
 

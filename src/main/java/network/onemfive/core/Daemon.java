@@ -1,6 +1,7 @@
 package network.onemfive.core;
 
 import network.onemfive.core.identity.IdentityService;
+import network.onemfive.core.protocol.I2PProtocolService;
 import network.onemfive.core.routing.RoutingService;
 import ra.common.SystemSettings;
 
@@ -62,6 +63,15 @@ public final class Daemon extends ra.servicebus.Daemon {
         Core.get().bind(bus, config);
         bus.registerAndStartServices(IdentityService.class, RoutingService.class);
         bus.awaitRunning(15_000, IdentityService.class, RoutingService.class);
+
+        if ("true".equalsIgnoreCase(config.getProperty("1m5.i2p.enabled"))) {
+            LOG.info("Registering I2P protocol service (1m5.i2p.enabled=true). "
+                    + "An embedded I2P router reseeds on first start - this can take several minutes.");
+            bus.registerAndStartService(I2PProtocolService.class);
+        } else {
+            LOG.info("I2P protocol service not registered (set 1m5.i2p.enabled=true to enable).");
+        }
+
         LOG.info("1M5 Core services running.");
     }
 

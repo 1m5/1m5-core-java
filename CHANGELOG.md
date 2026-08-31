@@ -23,7 +23,11 @@ Rewrite of the former `onemfive:platform` scaffold into the reusable 1M5 core.
 - `ManCon` model ported (`ManConStatus` now an instance, not global statics).
 - `Core` = thin runtime handle (active bus + ManCon state + protocol-readiness
   view); `Daemon extends ra.servicebus.Daemon`, filling only the 1M5 hooks.
-- `CoreSmokeTest`, `RoutingServiceTest` — green.
+- `NetworkServiceProtocol` adapter + `I2PProtocolService` wrapping `i2p-java`
+  1.7.1's `ra.i2p.I2PService`; `Daemon` registers it behind `1m5.i2p.enabled=true`.
+  `i2p-java` gained `ra.i2p.mode` (embedded | local | auto) + `LocalRouterDetector`,
+  referencing `1m5-android`'s embedded/local I2P split.
+- `CoreSmokeTest`, `RoutingServiceTest`, `ProtocolIntegrationTest` — green.
 - Removed the legacy `onemfive` package, `RELEASE-NOTES.md`, `BUILD.md`, `ops/`.
 
 See `TODO.md` for what is deliberately not yet implemented.

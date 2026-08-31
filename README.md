@@ -76,8 +76,14 @@ Then, in this directory:
     1m5.pass=<passphrase> java -jar target/1m5-core-0.1.0-jar-with-dependencies.jar
 
 Starts the service bus, establishes the node identity, and registers the router.
-Base directory is `~/.1m5/core/`. The localhost Envelope-JSON API that
-`1m5-desktop-java` speaks is not wired yet (see [`TODO.md`](TODO.md)).
+Base directory is `~/.1m5/core/`.
+
+Add `1m5.i2p.enabled=true` (arg or config) to also register the I2P protocol
+service — an `i2p-java` embedded router; first start reseeds and takes minutes.
+`ra.i2p.mode=local` attaches to a router already running on this host instead.
+
+The localhost Envelope-JSON API that `1m5-desktop-java` speaks is not wired yet
+(see [`TODO.md`](TODO.md)).
 
 ## Embedding
 

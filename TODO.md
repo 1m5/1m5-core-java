@@ -80,8 +80,17 @@ Port the escalation logic from `onemfive.routing.CRNetworkManagerService`:
 
 ## P3 — Default protocol services
 
-- [ ] `I2PProtocolService` — wrap `resolvingarchitecture:i2p` (or local `i2p-java`).
-- [ ] `TorProtocolService` — wrap `resolvingarchitecture:tor-client` (or `tor-java`).
+- [x] `NetworkServiceProtocol` — adapter bridging any `ra.common.network.NetworkService`
+      to `ProtocolService` (lifecycle + status + `sendOut`).
+- [~] `I2PProtocolService` — `NetworkServiceProtocol` around `ra.i2p.I2PService`
+      (`i2p-java` 1.7.1). Wired + `Daemon` registers it behind `1m5.i2p.enabled=true`;
+      the adapter/discovery/routing path is tested with a mock `NetworkService`. Not
+      yet run against a live I2P network (embedded reseed; `ra.i2p.mode=local` needs
+      field testing - see i2p-java's TODO).
+- [ ] Router (P1): set real `SimpleExternalRoute` destination `NetworkPeer`s (I2P
+      base64 address) so `I2PService.sendOut` has a destination.
+- [ ] `TorProtocolService` — `NetworkServiceProtocol` around
+      `resolvingarchitecture:tor-client` (or `tor-java`).
 - [ ] `HTTPProtocolService` — `resolvingarchitecture:http-client`; also hosts the
       localhost Envelope-JSON API on `127.0.0.1:2018`
       (`ra.http.EnvelopeJSONDataHandler`) so `1m5-desktop-java` keeps working.
