@@ -78,9 +78,12 @@ Then, in this directory:
 Starts the service bus, establishes the node identity, and registers the router.
 Base directory is `~/.1m5/core/`.
 
-Add `1m5.i2p.enabled=true` (arg or config) to also register the I2P protocol
-service — an `i2p-java` embedded router; first start reseeds and takes minutes.
-`ra.i2p.mode=local` attaches to a router already running on this host instead.
+Add `1m5.i2p.enabled=true` to also register the I2P protocol service (an `i2p-java`
+embedded router; first start reseeds and takes minutes; `ra.i2p.mode=local`
+attaches to a router already running on this host).
+
+Add `1m5.tor.enabled=true` to register the Tor protocol service (`tor-client-java`);
+it needs a **local Tor daemon** already running (SOCKS 9050 / control 9051).
 
 The localhost Envelope-JSON API that `1m5-desktop-java` speaks is not wired yet
 (see [`TODO.md`](TODO.md)).

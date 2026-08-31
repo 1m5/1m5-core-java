@@ -89,8 +89,11 @@ Port the escalation logic from `onemfive.routing.CRNetworkManagerService`:
       field testing - see i2p-java's TODO).
 - [ ] Router (P1): set real `SimpleExternalRoute` destination `NetworkPeer`s (I2P
       base64 address) so `I2PService.sendOut` has a destination.
-- [ ] `TorProtocolService` — `NetworkServiceProtocol` around
-      `resolvingarchitecture:tor-client` (or `tor-java`).
+- [~] `TorProtocolService` — `NetworkServiceProtocol` around `ra.tor.TORClientService`
+      (`tor-client-java` 1.2.1, which brings `http-client` -> jetty/okhttp). Wired +
+      `Daemon` registers it behind `1m5.tor.enabled=true`; adapter path shares the
+      `ProtocolIntegrationTest` coverage. Not run against a live Tor daemon (local
+      Tor required). Tor is local-only (no embedded).
 - [ ] `HTTPProtocolService` — `resolvingarchitecture:http-client`; also hosts the
       localhost Envelope-JSON API on `127.0.0.1:2018`
       (`ra.http.EnvelopeJSONDataHandler`) so `1m5-desktop-java` keeps working.

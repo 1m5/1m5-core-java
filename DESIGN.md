@@ -206,10 +206,15 @@ That is *not* a 1M5 `ProtocolService`, so the router would not discover it.
 - `send(Envelope)` delegates to a subclass `sendOut(...)` (the wrapped service's
   public `sendOut`).
 
-`I2PProtocolService` is `NetworkServiceProtocol` around `ra.i2p.I2PService`. The
-`Daemon` registers it only when `1m5.i2p.enabled=true` (an embedded I2P router
-reseeds on first start and takes minutes; router mode is set by `ra.i2p.mode` =
-`embedded` | `local` | `auto`). Tor and Bluetooth adapters follow the same shape.
+`I2PProtocolService` is `NetworkServiceProtocol` around `ra.i2p.I2PService`
+(`i2p-java`), registered when `1m5.i2p.enabled=true` (an embedded I2P router
+reseeds on first start; mode via `ra.i2p.mode` = `embedded` | `local` | `auto`).
+
+`TorProtocolService` is `NetworkServiceProtocol` around `ra.tor.TORClientService`
+(`tor-client-java`), registered when `1m5.tor.enabled=true`. Tor is local-only - it
+needs a Tor daemon already running on the host (SOCKS 9050 / control 9051); the
+adapter's `start()` returns false cleanly, with an actionable log line, when none
+is found. Bluetooth follows the same shape.
 
 ---
 

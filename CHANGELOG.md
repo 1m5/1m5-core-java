@@ -23,10 +23,14 @@ Rewrite of the former `onemfive:platform` scaffold into the reusable 1M5 core.
 - `ManCon` model ported (`ManConStatus` now an instance, not global statics).
 - `Core` = thin runtime handle (active bus + ManCon state + protocol-readiness
   view); `Daemon extends ra.servicebus.Daemon`, filling only the 1M5 hooks.
-- `NetworkServiceProtocol` adapter + `I2PProtocolService` wrapping `i2p-java`
-  1.7.1's `ra.i2p.I2PService`; `Daemon` registers it behind `1m5.i2p.enabled=true`.
-  `i2p-java` gained `ra.i2p.mode` (embedded | local | auto) + `LocalRouterDetector`,
-  referencing `1m5-android`'s embedded/local I2P split.
+- `NetworkServiceProtocol` adapter bridging any `ra.common.network.NetworkService`
+  to `ProtocolService`.
+  - `I2PProtocolService` wraps `i2p-java` 1.7.1's `ra.i2p.I2PService`
+    (`1m5.i2p.enabled=true`). `i2p-java` gained `ra.i2p.mode` (embedded | local |
+    auto) + `LocalRouterDetector`, referencing `1m5-android`'s embedded/local split.
+  - `TorProtocolService` wraps `tor-client-java` 1.2.1's `ra.tor.TORClientService`
+    (`1m5.tor.enabled=true`; local Tor daemon only). `tor-client-java` gained
+    `LocalTorDetector` + fail-fast startup.
 - `CoreSmokeTest`, `RoutingServiceTest`, `ProtocolIntegrationTest` — green.
 - Removed the legacy `onemfive` package, `RELEASE-NOTES.md`, `BUILD.md`, `ops/`.
 

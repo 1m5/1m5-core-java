@@ -2,6 +2,7 @@ package network.onemfive.core;
 
 import network.onemfive.core.identity.IdentityService;
 import network.onemfive.core.protocol.I2PProtocolService;
+import network.onemfive.core.protocol.TorProtocolService;
 import network.onemfive.core.routing.RoutingService;
 import ra.common.SystemSettings;
 
@@ -70,6 +71,14 @@ public final class Daemon extends ra.servicebus.Daemon {
             bus.registerAndStartService(I2PProtocolService.class);
         } else {
             LOG.info("I2P protocol service not registered (set 1m5.i2p.enabled=true to enable).");
+        }
+
+        if ("true".equalsIgnoreCase(config.getProperty("1m5.tor.enabled"))) {
+            LOG.info("Registering Tor protocol service (1m5.tor.enabled=true). "
+                    + "Requires a local Tor daemon (SOCKS 9050 / control 9051).");
+            bus.registerAndStartService(TorProtocolService.class);
+        } else {
+            LOG.info("Tor protocol service not registered (set 1m5.tor.enabled=true to enable).");
         }
 
         LOG.info("1M5 Core services running.");

@@ -72,12 +72,22 @@
 		</dependency>
 
 		<!--
+		  Tor protocol service. Wrapped by network.onemfive.core.protocol.TorProtocolService
+		  and registered by the Daemon only when 1m5.tor.enabled=true (needs a local Tor
+		  daemon). Brings tor-client -> http-client (jetty, okhttp).
+		-->
+		<dependency>
+			<groupId>resolvingarchitecture</groupId>
+			<artifactId>tor-client</artifactId>
+			<version>1.2.1</version>
+		</dependency>
+
+		<!--
 		  Added as the corresponding capability is implemented (see TODO.md):
 		    resolvingarchitecture:notification  - status/event pub-sub (NotificationService)
-		    resolvingarchitecture:http-client   - localhost Envelope-JSON API for 1m5-desktop-java
 		    resolvingarchitecture:did           - legacy OpenPGP identity (read-only, migration)
 		    resolvingarchitecture:network-manager - InMemoryPeerDB / P2PRelationship for the router
-		    resolvingarchitecture:tor-client, bluetooth-client - more default ProtocolService impls
+		    resolvingarchitecture:bluetooth-client - Bluetooth ProtocolService
 		    resolvingarchitecture:btc, dex      - Bitcoin business services
 		-->
 
