@@ -1,3 +1,9 @@
 language: java
 jdk:
-    - openjdk11
+    - openjdk17
+install:
+    - git clone --depth 1 https://github.com/resolvingarchitecture/ra-common-java ../ra-common-java && (cd ../ra-common-java && mvn -q -DskipTests install)
+    - git clone --depth 1 https://github.com/resolvingarchitecture/seda-bus-java ../seda-bus-java && (cd ../seda-bus-java && mvn -q -DskipTests install)
+    - git clone --depth 1 https://github.com/resolvingarchitecture/service-bus-java ../service-bus-java && (cd ../service-bus-java && mvn -q -DskipTests install)
+script:
+    - mvn -q test

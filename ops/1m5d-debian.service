@@ -1,9 +1,0 @@
-[Unit]
-Description=1M5 Router Daemon
-[Service]
-ExecStart=/usr/bin/java -Djava.util.logging.config.file=/usr/share/1m5/router/config/logging.properties -jar /usr/share/lib/1m5/1m5-router-0.6.3-SNAPSHOT.jar "java.util.logging.config.file=/usr/share/1m5/router/config/logging.properties"
-Type=simple
-User=Alice
-WorkingDirectory=/usr/share/1m5/router
-[Install]
-WantedBy=multi-user.target

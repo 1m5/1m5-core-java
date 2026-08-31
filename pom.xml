@@ -3,20 +3,25 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>onemfive</groupId>
-	<artifactId>platform</artifactId>
-	<version>2.6.21</version>
-
+	<groupId>network.onemfive</groupId>
+	<artifactId>1m5-core</artifactId>
+	<version>0.1.0</version>
 	<packaging>jar</packaging>
 
-	<name>1m5-platform</name>
+	<name>1m5-core</name>
 	<url>https://1m5.io</url>
-	<description>Invisible Matrix Services - Platform</description>
+	<description>1M5 Core - intelligent censorship-resistant router built on the SEDA and Service buses</description>
 	<inceptionYear>2017</inceptionYear>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<java.version>1.8</java.version>
+		<!--
+		  Java 17: matches seda-bus:1.3.0 (already Java 17 bytecode, so a JDK 17+
+		  build is required regardless) and the 1m5-android app module (already 17).
+		  1m5-desktop-java stays on 11 by depending on a small Java-11 1m5-common
+		  (ManCon et al.) rather than on this jar directly - see TODO.md.
+		-->
+		<maven.compiler.release>17</maven.compiler.release>
 	</properties>
 
 	<developers>
@@ -27,9 +32,9 @@
 	</developers>
 
 	<scm>
-		<connection>scm:git@github.com/1m5/1m5-java</connection>
-		<developerConnection>scm:git@github.com/1m5/1m5-java</developerConnection>
-		<url>git@github.com/1m5/1m5-java</url>
+		<connection>scm:git@github.com/1m5/1m5-core-java</connection>
+		<developerConnection>scm:git@github.com/1m5/1m5-core-java</developerConnection>
+		<url>git@github.com/1m5/1m5-core-java</url>
 	</scm>
 
 	<repositories>
@@ -40,87 +45,29 @@
 	</repositories>
 
 	<dependencies>
-        <!-- Resolving Architecture -->
+		<!--
+		  The bus stack, as one chain:
+		    1m5-core  ->  service-bus  ->  seda-bus  ->  common
+		  service-bus-java is the only layer we depend on directly; it brings
+		  seda-bus-java (the SEDA staged bus + routing-slip execution engine) and
+		  ra-common (Envelope, DynamicRoutingSlip, Route, BaseService, ServiceLevel)
+		  transitively at the versions it was built and tested against.
+		-->
 		<dependency>
 			<groupId>resolvingarchitecture</groupId>
-			<artifactId>common</artifactId>
-			<version>1.2.0</version>
+			<artifactId>service-bus</artifactId>
+			<version>1.5.0</version>
 		</dependency>
-        <dependency>
-            <groupId>resolvingarchitecture</groupId>
-            <artifactId>service-bus</artifactId>
-            <version>1.4.0</version>
-        </dependency>
-        <dependency>
-            <groupId>resolvingarchitecture</groupId>
-            <artifactId>notification</artifactId>
-            <version>1.2.0</version>
-        </dependency>
-		<dependency>
-			<groupId>resolvingarchitecture</groupId>
-			<artifactId>did</artifactId>
-			<version>1.3.0</version>
-		</dependency>
-		<dependency>
-			<groupId>resolvingarchitecture</groupId>
-			<artifactId>http-client</artifactId>
-			<version>1.2.0</version>
-		</dependency>
-		<dependency>
-			<groupId>resolvingarchitecture</groupId>
-			<artifactId>tor-client</artifactId>
-			<version>1.2.0</version>
-		</dependency>
-        <dependency>
-            <groupId>resolvingarchitecture</groupId>
-            <artifactId>i2p</artifactId>
-            <version>1.7.0.1</version>
-        </dependency>
-		<dependency>
-			<groupId>resolvingarchitecture</groupId>
-			<artifactId>bluetooth-client</artifactId>
-			<version>1.2.0</version>
-		</dependency>
-<!--        <dependency>-->
-<!--            <groupId>resolvingarchitecture</groupId>-->
-<!--            <artifactId>wifidirect-client</artifactId>-->
-<!--            <version>1.0.1</version>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>resolvingarchitecture</groupId>-->
-<!--            <artifactId>gnuradio-client</artifactId>-->
-<!--            <version>1.0.1</version>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>resolvingarchitecture</groupId>-->
-<!--            <artifactId>lifi-client</artifactId>-->
-<!--            <version>1.0.1</version>-->
-<!--        </dependency>-->
-		<dependency>
-			<groupId>resolvingarchitecture</groupId>
-			<artifactId>network-manager</artifactId>
-			<version>1.4.1</version>
-		</dependency>
-        <dependency>
-            <groupId>resolvingarchitecture</groupId>
-            <artifactId>mail-drop</artifactId>
-            <version>1.2.0</version>
-        </dependency>
-<!--        <dependency>-->
-<!--            <groupId>resolvingarchitecture</groupId>-->
-<!--            <artifactId>press-freedom-index</artifactId>-->
-<!--            <version>1.1.0</version>-->
-<!--        </dependency>-->
-        <dependency>
-            <groupId>resolvingarchitecture</groupId>
-            <artifactId>btc</artifactId>
-            <version>1.0.3</version>
-        </dependency>
-        <dependency>
-            <groupId>resolvingarchitecture</groupId>
-            <artifactId>dex</artifactId>
-            <version>0.2.4</version>
-        </dependency>
+
+		<!--
+		  Added as the corresponding capability is implemented (see TODO.md):
+		    resolvingarchitecture:notification  - status/event pub-sub (NotificationService)
+		    resolvingarchitecture:http-client   - localhost Envelope-JSON API for 1m5-desktop-java
+		    resolvingarchitecture:did           - legacy OpenPGP identity (read-only, migration)
+		    resolvingarchitecture:network-manager - InMemoryPeerDB / P2PRelationship for the router
+		    resolvingarchitecture:i2p, tor-client, bluetooth-client - default ProtocolService impls
+		    resolvingarchitecture:btc, dex      - Bitcoin business services
+		-->
 
 		<!-- Test -->
 		<dependency>
@@ -129,54 +76,36 @@
 			<version>4.13.2</version>
 			<scope>test</scope>
 		</dependency>
-
 	</dependencies>
 
 	<build>
-		<finalName>${project.name}-${project.version}</finalName>
+		<finalName>${project.artifactId}-${project.version}</finalName>
 		<resources>
 			<resource>
 				<directory>src/main/resources</directory>
 				<filtering>true</filtering>
 				<includes>
-                    <include>**/*.json</include>
-					<include>**/*.xml</include>
-					<include>**/*.yml</include>
-					<include>**/*.properties</include>
 					<include>**/*.config</include>
-					<include>**/*.txt</include>
-					<include>**/*.crt</include>
-					<include>**/*.png</include>
-					<include>**/*.fxml</include>
-					<include>**/*.css</include>
-					<include>**/*.ttf</include>
-					<include>**/*.otf</include>
+					<include>**/*.properties</include>
+					<include>**/*.json</include>
+					<include>**/*.xml</include>
 				</includes>
 			</resource>
 		</resources>
-<!--		<pluginManagement>-->
-<!--			<plugins>-->
-<!--				<plugin>-->
-<!--					<groupId>org.apache.maven.plugins</groupId>-->
-<!--					<artifactId>maven-compiler-plugin</artifactId>-->
-<!--					<version>3.8.0</version>-->
-<!--                    <configuration>-->
-<!--                        <release>11</release>-->
-<!--                    </configuration>-->
-<!--				</plugin>-->
-<!--			</plugins>-->
-<!--		</pluginManagement>-->
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<configuration>
-					<source>${java.version}</source>
-					<target>${java.version}</target>
-				</configuration>
+				<version>3.13.0</version>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.2.5</version>
 			</plugin>
 			<plugin>
 				<artifactId>maven-assembly-plugin</artifactId>
+				<version>3.7.1</version>
 				<executions>
 					<execution>
 						<phase>package</phase>
@@ -188,7 +117,7 @@
 				<configuration>
 					<archive>
 						<manifest>
-							<mainClass>onemfive.Daemon</mainClass>
+							<mainClass>network.onemfive.core.Daemon</mainClass>
 						</manifest>
 					</archive>
 					<descriptorRefs>
