@@ -107,7 +107,7 @@ Service management (register / start / discover / await / pause) is
 | `1m5-core-java`     | this module — the reusable router and bus stack                                   |
 | `1m5-desktop-java`  | JavaFX client; talks to a running core daemon over a localhost Envelope-JSON API  |
 | `1m5-android`       | product "Remnant"; today a standalone reimplementation, a future host for this core |
-| `1m5-docs`          | `ARCHITECTURE.md`, ADRs (incl. ADR-0002 Nostr identity), roadmap, strategy         |
+| `1m5-docs`          | `README.md`, ADRs (incl. ADR-0002 Nostr identity), roadmap, strategy         |
 
 `1m5-android` and `1m5-desktop-java` are **not** modified by work in this repo; their
 adoption of this core is deferred roadmap material in [`TODO.md`](TODO.md).
