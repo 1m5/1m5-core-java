@@ -125,10 +125,10 @@ roadmap.
 
 ---
 
-## Embedding contract — `1m5-core-client`
+## Embedding contract — `CoreClient` (in this module)
 
-New zero-dependency module `network.onemfive:1m5-core-client:0.1.0`. See
-[`DESIGN.md`](DESIGN.md) §"The embedding contract" and
+Package `network.onemfive.core.client`, part of the `1m5-core` jar (no separate
+module). See [`DESIGN.md`](DESIGN.md) §"The embedding contract" and
 `1m5-docs/architecture/README.md` §"The 1M5 Core contract" (the `Msg` / `CoreClient`
 shape must stay identical across those and `1m5-android/DESIGN.md`).
 
@@ -136,17 +136,16 @@ shape must stay identical across those and `1m5-android/DESIGN.md`).
       `Map<String,String> headers`, `byte[] payload`, `Deque<String> slip`,
       `int attempts`; routing scalars in reserved `x.*` headers), `ProtocolHandle`,
       `CoreInbound`, `ReplyHandler`, `TransportStatus`, `IdentityStatus`.
-- [ ] `ProtocolService.channelName()`; `RoutingService.choose()` routes on it, not
+- [ ] `ProtocolService.channelName()`; `RoutingService` routes on it, not
       `getClass().getName()`; `Core` `name → service` alias table.
-- [ ] `EmbeddedCoreClient` (in `1m5-core-java`): `Msg` ↔ `ra.common.Envelope`
-      translation over `Core.get()`; `x.*` headers ↔ `Envelope` scalar setters;
-      slip reversed front-to-back ↔ LIFO stack; `HandleBackedProtocolService`
-      wrapping a `ProtocolHandle`.
+- [ ] `EmbeddedCoreClient`: `Msg` ↔ `ra.common.Envelope` translation over
+      `Core.get()`; `x.*` headers ↔ `Envelope` scalar setters; slip reversed
+      front-to-back ↔ LIFO stack; `HandleBackedProtocolService` wrapping a
+      `ProtocolHandle`.
 - [ ] `CoreClientContractTest` (abstract) — runs against `EmbeddedCoreClient` now,
-      `HttpCoreClient` / `RustCoreClient` later.
-- [ ] JSON golden files for the `Msg` wire form, shared with `1m5-core-rust`
-      (`did-vectors`-style fixtures). This JSON is also the ADR-0003 RPC envelope
-      encoding.
+      `HttpCoreClient` when the ADR-0003 RPC API lands.
+- [ ] JSON golden files for the `Msg` wire form (`did-vectors`-style fixtures).
+      This JSON is also the ADR-0003 RPC envelope encoding.
 
 ---
 
@@ -189,12 +188,10 @@ shape must stay identical across those and `1m5-android/DESIGN.md`).
       module; `I2PProtocolAdapter` / `TorProtocolAdapter` wrapping Remnant's
       existing embedded transports; `AndroidPassphraseProvider`; `OneMFiveApplication`
       compat shim; service-by-service cutover. No code in either repo this pass.
-- [ ] **Rust core as an Android option**: `1m5-core-rust` gaps to close first —
-      real secp256k1 + BIP-340 + pass `did-vectors`; Argon2id + AES-256-GCM sealed
-      store; `Sender`-parity router; `DataService` durable-state parity;
-      `max_available` probing; a `1m5-core-rust-ffi` UniFFI crate exposing the
-      `CoreClient` verbs + `ProtocolHandle`/`CoreInbound` as callback interfaces;
-      `cargo-ndk` + `.aar` packaging; a parity suite + shared golden JSON.
+- [ ] **`1m5-core-rust`**: the Rust implementation of this design, embedded by
+      `1m505` (Redox OS). Kept in step with this repo (shared `Msg` wire form,
+      mirrored escalation engine). Not a candidate for the Android app — Remnant
+      embeds the in-process Java core.
 
 ## `1m5-common` — keeps `1m5-desktop-java` on Java 11
 

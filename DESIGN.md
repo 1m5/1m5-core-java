@@ -444,18 +444,23 @@ the desktop keeps working unchanged. That needs `resolvingarchitecture:http-clie
 ## The embedding contract (`CoreClient`)
 
 `Core.get().start(Properties)` + `registerServices` / `awaitServices` / `send` is a
-usable embedding path for a JVM host, but it is **not** language-agnostic:
-`registerService(Class<…>)` instantiates reflectively and keys channels by FQCN,
-and `ra.common.Envelope` carries a polymorphic `DynamicRoutingSlip` of `Route`
-subclasses round-tripped through `Class.forName`. A Rust core cannot satisfy that,
-and the Rust core has already diverged (string-keyed services, a flat `Envelope {
-id, to, sender, headers, payload, slip: VecDeque<String>, attempts }`).
+usable embedding path for a JVM host, but it drags the whole bus API into the
+host: `registerService(Class<…>)` instantiates reflectively and keys channels by
+FQCN, and `ra.common.Envelope` carries a polymorphic `DynamicRoutingSlip` of
+`Route` subclasses round-tripped through `Class.forName`. An app-layer host
+(Remnant's `:app`) should not see any of that.
 
-So the host↔core boundary is a **narrow, language-agnostic facade** in a new
-zero-dependency module, `network.onemfive:1m5-core-client:0.1.0`. Nothing in it
-names a Java class, a JVM type, or a bus primitive. The mission-level statement is
+So the host↔core boundary is a **narrow facade** — `CoreClient` — that names no
+bus primitive: a flat serialisable `Msg`, string channel names, callback-shaped
+transport registration. It lives **in this module** (package
+`network.onemfive.core.client`), alongside `EmbeddedCoreClient` which implements
+it over `Core.get()`. The mission-level statement is
 `1m5-docs/architecture/README.md` §"The 1M5 Core contract"; it must read
 identically there, here, and in `1m5-android/DESIGN.md`.
+
+The same `Msg` shape is the out-of-process wire form too — the ADR-0003 node RPC
+API's envelope, and (usefully but not by design) the flat `Envelope` the Rust
+core (`1m5-core-rust`, for `1m505`) already uses.
 
 **Verbs — `CoreClient` (~8):**
 
@@ -506,7 +511,7 @@ Routing scalars are carried as reserved `x.*` headers rather than typed fields:
 instead of `getClass().getName()`; `Core` keeps a `name → service` alias table (no
 `service-bus` change).
 
-### `EmbeddedCoreClient` (in this module)
+### `EmbeddedCoreClient`
 
 `EmbeddedCoreClient implements CoreClient` sits over `Core.get()` and does the
 `Msg` ↔ `ra.common.Envelope` translation:
@@ -515,24 +520,20 @@ instead of `getClass().getName()`; `Core` keeps a `name → service` alias table
   `setDelayed`/`setMinDelay`/`setMaxDelay`, `setCopy`/…); everything else stays in
   the `Envelope` headers map.
 - `Msg.slip` is **front-to-back** (front = next hop); it is reversed into the
-  `ra` LIFO `DynamicRoutingSlip` stack internally. The Rust `VecDeque` already
-  matches the contract's order.
+  `ra` LIFO `DynamicRoutingSlip` stack internally.
 - `registerProtocol(handle)` wraps the `ProtocolHandle` in a synthetic
   `HandleBackedProtocolService` (`channelName()` = `handle.name()`) and registers
   it on the bus; the returned `CoreInbound` feeds inbound `Msg`s back through the
   producer.
 
-### Other implementations satisfy the same interface
+### Out-of-process: `HttpCoreClient`
 
-- **`HttpCoreClient`** — talks to a node's localhost RPC API (ADR-0003). `Msg`'s
-  JSON encoding *is* that API's envelope encoding, so this is a thin transport
-  shim.
-- **`RustCoreClient`** — a UniFFI binding over `1m5-core-rust` packaged as an
-  `.aar`; `ProtocolHandle` / `CoreInbound` become UniFFI callback interfaces.
-
-An abstract `CoreClientContractTest` runs against `EmbeddedCoreClient` now and the
-others later; JSON golden files are shared with `1m5-core-rust` and follow the
-`did-vectors` fixture style. See ADR-0003 for the node/client split.
+A second `CoreClient` implementation, `HttpCoreClient`, talks to a running node
+over its localhost RPC API (ADR-0003) — `Msg`'s JSON encoding *is* that API's
+envelope encoding, so it is a thin transport shim. This is the path
+`1m5-desktop-java` takes. An abstract `CoreClientContractTest` runs against
+`EmbeddedCoreClient` now and `HttpCoreClient` when the RPC API lands; the JSON
+golden files follow the `did-vectors` fixture style.
 
 ## Android reuse
 
@@ -561,9 +562,8 @@ pulled into consumers at build time.
 - Consumers (including `1m5-android`) add `mavenLocal()` and depend on `1m5-core`
   as a normal `implementation` — its Maven-Central transitives
   (`secp256k1-kmp-jni-*`, net.i2p, tor) resolve normally. This is preferred over
-  hand-curating a `src/dist` jar closure.
-- The `1m5-android` `src/dist` `fileTree` slot is reserved for artifacts that are
-  not Maven modules — notably a future `1m5-core-rust` `.aar`.
+  hand-curating a `src/dist` jar closure. `1m5-core` carries the `CoreClient`
+  contract and `EmbeddedCoreClient`, so a host needs nothing else.
 
 ---
 
