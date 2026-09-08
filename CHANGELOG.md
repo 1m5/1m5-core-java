@@ -56,8 +56,18 @@ Rewrite of the former `onemfive:platform` scaffold into the reusable 1M5 core.
   is logged for every envelope.
 - Depends on `ra-common 1.3.2` (`BaseRoute.fromMap` `routedId` typo fixed, so
   `routeId` survives slip JSON round-trip).
-- Tests: `EscalationRouterTest` (12), `ManConStatusTest` (5),
-  `RoutingServiceEscalationTest` (4) - 28 green total.
+- Tests: `EscalationRouterTest` (12), `ManConStatusTest` (8),
+  `RoutingServiceEscalationTest` (4) - 31 green total.
+
+### Jurisdiction → default ManCon floor
+
+- `jurisdictions-levels.txt` (a copy of `1m5-docs/`'s, bundled as a resource;
+  pom now packages `**/*.txt`): ISO 3166-1 alpha-2 → ManCon by RSF World Press
+  Freedom Index band.
+- `ManConStatus.defaultFor(iso2)` (static, cached) + `applyJurisdiction(iso2)`;
+  the `Daemon` seeds `minRequired` from the `1m5.jurisdiction` config key / env
+  var. The user→jurisdiction lookup stays a host concern; the default is
+  user-overridable.
 
 Still not implemented: the ManCon-driven random-delay ratchet beyond the
 VERYHIGH/EXTREME/NEO parameter bands, NEO mnemonic-only keys, live-network relay

@@ -327,13 +327,14 @@ mirrors this engine (`escalation::decide`).
 - **`ManConStatus`** — an **instance** (owned by `Core`), not global mutable statics
   as in the legacy code. Holds min required / max available / max supported and a
   `select(requested)` that clamps a request into the achievable band. **`min
-  required`** (the floor) is seeded from the user's jurisdiction via
-  `1m5-docs/jurisdictions-levels.txt` (RSF World Press Freedom Index band →
-  ManCon: Good→LOW, Satisfactory→MEDIUM, Problematic→HIGH, Difficult→VERYHIGH,
-  Very serious→EXTREME; `*`→HIGH fallback). Copy that file in as a resource; add
-  `ManConStatus.defaultFor(String iso2)` reading it. The user→jurisdiction lookup
-  (GeoIP / SIM MCC / locale / user setting) is a host concern, and the default is
-  always user-overridable.
+  required`** (the floor) is seeded from the user's jurisdiction:
+  `jurisdictions-levels.txt` (a copy of `1m5-docs/`'s, bundled as a resource) maps
+  ISO-3166-1 alpha-2 → ManCon by RSF World Press Freedom Index band (Good→LOW,
+  Satisfactory→MEDIUM, Problematic→HIGH, Difficult→VERYHIGH, Very serious→EXTREME;
+  `*`→HIGH fallback). `ManConStatus.defaultFor(iso2)` / `applyJurisdiction(iso2)`
+  read it; the `Daemon` calls it from the `1m5.jurisdiction` config key. The
+  user→jurisdiction lookup (GeoIP / SIM MCC / locale / user setting) is a host
+  concern, and the default is always user-overridable.
 - **`ManConStatusListener`** (`extends Runnable`) — hosts register to refresh what
   they show the user when the band changes.
 - **`SituationalAwareness`** — the per-envelope decision snapshot.

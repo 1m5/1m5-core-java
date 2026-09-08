@@ -66,4 +66,31 @@ public class ManConStatusTest {
         assertEquals("non-internet reaches every level",
                 ManCon.NEO, ManConNetworks.maxAvailableFor(Arrays.asList(Network.Bluetooth)));
     }
+
+    @Test
+    public void defaultForJurisdiction() {
+        // from jurisdictions-levels.txt (RSF World Press Freedom Index 2026)
+        assertEquals(ManCon.LOW, ManConStatus.defaultFor("NO"));        // Norway - Good
+        assertEquals("case-insensitive", ManCon.MEDIUM, ManConStatus.defaultFor("gb")); // UK - Satisfactory
+        assertEquals(ManCon.HIGH, ManConStatus.defaultFor("US"));       // USA - Problematic
+        assertEquals(ManCon.VERYHIGH, ManConStatus.defaultFor("ZW"));   // Zimbabwe - Difficult
+        assertEquals(ManCon.EXTREME, ManConStatus.defaultFor("CN"));    // China - Very serious
+        assertEquals(ManCon.HIGH, ManConStatus.defaultFor("KN"));       // OECS member
+    }
+
+    @Test
+    public void defaultForFallsBackToHigh() {
+        assertEquals(ManCon.HIGH, ManConStatus.defaultFor("ZZ"));   // not a jurisdiction -> the "*" line
+        assertEquals(ManCon.HIGH, ManConStatus.defaultFor(null));
+        assertEquals(ManCon.HIGH, ManConStatus.defaultFor("  "));
+    }
+
+    @Test
+    public void applyJurisdictionSetsTheFloor() {
+        ManConStatus s = new ManConStatus();
+        s.applyJurisdiction("cn");
+        assertEquals(ManCon.EXTREME, s.getMinRequired());
+        s.applyJurisdiction("NO");
+        assertEquals(ManCon.LOW, s.getMinRequired());
+    }
 }

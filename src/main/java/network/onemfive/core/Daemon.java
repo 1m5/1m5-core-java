@@ -66,6 +66,18 @@ public final class Daemon extends ra.servicebus.Daemon {
     @Override
     protected void onBusStarted(ra.servicebus.ServiceBus bus, Properties config) {
         Core.get().bind(bus, config);
+
+        // Seed the ManCon floor (minRequired) from the user's jurisdiction, if the
+        // host supplied one. RSF Press Freedom Index band -> ManCon; see
+        // jurisdictions-levels.txt. The user is free to override it afterwards.
+        String jurisdiction = config.getProperty("1m5.jurisdiction");
+        if (jurisdiction == null || jurisdiction.trim().isEmpty()) jurisdiction = System.getenv("1m5.jurisdiction");
+        if (jurisdiction != null && !jurisdiction.trim().isEmpty()) {
+            Core.get().manConStatus().applyJurisdiction(jurisdiction);
+            LOG.info("ManCon floor from jurisdiction " + jurisdiction.trim().toUpperCase()
+                    + " -> " + Core.get().manConStatus().getMinRequired());
+        }
+
         bus.registerAndStartServices(IdentityService.class, RoutingService.class);
         bus.awaitRunning(15_000, IdentityService.class, RoutingService.class);
 

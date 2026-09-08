@@ -1,5 +1,14 @@
 package network.onemfive.core;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.logging.Logger;
+
 /**
  * The three ManCon parameters the router weighs for every routed envelope:
  *
@@ -23,12 +32,76 @@ package network.onemfive.core;
  */
 public final class ManConStatus {
 
+    private static final Logger LOG = Logger.getLogger(ManConStatus.class.getName());
+
+    /** Bundled RSF-Press-Freedom-Index → ManCon table (see {@link #defaultFor}). */
+    private static final String JURISDICTIONS_RESOURCE = "/jurisdictions-levels.txt";
+    private static volatile Map<String, ManCon> jurisdictions;
+
     private volatile ManCon minRequired = ManCon.HIGH;
     private volatile ManCon maxAvailable = ManCon.NONE;
     private volatile ManCon maxSupported = ManCon.EXTREME;
 
     public ManCon getMinRequired() { return minRequired; }
     public void setMinRequired(ManCon m) { this.minRequired = m; }
+
+    /**
+     * Seed {@link #minRequired} (the operator/user floor) from the user's
+     * jurisdiction — see {@link #defaultFor(String)}.
+     */
+    public void applyJurisdiction(String iso2) {
+        setMinRequired(defaultFor(iso2));
+    }
+
+    /**
+     * The recommended default ManCon floor for a user in the given jurisdiction,
+     * from the bundled {@code jurisdictions-levels.txt} (RSF World Press Freedom
+     * Index band → ManCon: Good→LOW, Satisfactory→MEDIUM, Problematic→HIGH,
+     * Difficult→VERYHIGH, Very serious→EXTREME). Falls back to the file's
+     * {@code *} line, then to {@link ManCon#HIGH}.
+     *
+     * @param iso2 an ISO 3166-1 alpha-2 country code, case-insensitive; {@code null}
+     *             or blank returns the fallback. The user→jurisdiction lookup
+     *             (GeoIP, SIM MCC, locale, an explicit setting) is the host's job.
+     */
+    public static ManCon defaultFor(String iso2) {
+        Map<String, ManCon> m = jurisdictions();
+        ManCon fallback = m.getOrDefault("*", ManCon.HIGH);
+        if (iso2 == null) return fallback;
+        return m.getOrDefault(iso2.trim().toUpperCase(Locale.ROOT), fallback);
+    }
+
+    private static Map<String, ManCon> jurisdictions() {
+        Map<String, ManCon> m = jurisdictions;
+        if (m != null) return m;
+        synchronized (ManConStatus.class) {
+            if (jurisdictions != null) return jurisdictions;
+            m = new HashMap<>();
+            try (InputStream in = ManConStatus.class.getResourceAsStream(JURISDICTIONS_RESOURCE)) {
+                if (in == null) {
+                    LOG.warning(JURISDICTIONS_RESOURCE + " not on the classpath - defaultFor() returns HIGH");
+                } else {
+                    BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+                    String line;
+                    while ((line = r.readLine()) != null) {
+                        line = line.trim();
+                        if (line.isEmpty() || line.charAt(0) == '#') continue;
+                        String[] tok = line.split("\\s+", 3);
+                        if (tok.length < 2) continue;
+                        try {
+                            m.put(tok[0], ManCon.valueOf(tok[1]));
+                        } catch (IllegalArgumentException ex) {
+                            LOG.warning("jurisdictions-levels.txt: unknown ManCon '" + tok[1] + "'");
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                LOG.warning("jurisdictions-levels.txt: " + e.getMessage());
+            }
+            jurisdictions = m;
+            return m;
+        }
+    }
 
     public ManCon getMaxAvailable() { return maxAvailable; }
 

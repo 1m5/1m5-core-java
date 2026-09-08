@@ -144,6 +144,7 @@
 					<include>**/*.properties</include>
 					<include>**/*.json</include>
 					<include>**/*.xml</include>
+					<include>**/*.txt</include>
 				</includes>
 			</resource>
 		</resources>

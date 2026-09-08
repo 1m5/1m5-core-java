@@ -87,12 +87,12 @@ roadmap.
       VERYHIGH/EXTREME/NEO parameter bands; NEO long-delay + mnemonic-only key.
 - [ ] Per-*level* connectivity probing (the current `maxAvailable` is a
       transport-class heuristic, not timestamped per-level tests).
-- [ ] **Jurisdiction default for `minRequired`**: copy
-      `1m5-docs/jurisdictions-levels.txt` in as a resource; add
-      `ManConStatus.defaultFor(String iso2)` (parse the file, `*` = fallback);
-      the `Daemon` / host sets `minRequired` from it. User→jurisdiction lookup is
-      the host's job. Test against a few known rows (NO→LOW, GB→MEDIUM, US→HIGH,
-      CN→EXTREME, unknown→HIGH).
+- [x] **Jurisdiction default for `minRequired`**: `jurisdictions-levels.txt`
+      bundled as a resource; `ManConStatus.defaultFor(String iso2)` +
+      `applyJurisdiction(iso2)`; the `Daemon` seeds `minRequired` from the
+      `1m5.jurisdiction` config key / env var. `ManConStatusTest` covers
+      NO→LOW / GB→MEDIUM / US→HIGH / ZW→VERYHIGH / CN→EXTREME / unknown→HIGH.
+      User→jurisdiction lookup stays the host's job.
 
 ---
 

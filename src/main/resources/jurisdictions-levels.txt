@@ -1,0 +1,209 @@
+# 1M5 default ManCon by jurisdiction
+#
+# Source:    RSF World Press Freedom Index 2026  (https://rsf.org/en/index?year=2026)
+# Generated: 2026-09-08 by 1m5-docs/tools/build-jurisdiction-levels.sh - do not hand-edit.
+#
+# Each line:  <ISO 3166-1 alpha-2>  <ManCon>   # <rank> <country>  <score>  <RSF band>
+#
+# The ManCon is the DEFAULT minRequired (the floor) for a user in that
+# jurisdiction - a starting point the user can override. NEO is never a
+# jurisdiction default (it is per-message: sensitivity 10 / life-threatening).
+#
+#   RSF band        score      ManCon
+#   Good            > 85       LOW
+#   Satisfactory    70 - 85    MEDIUM
+#   Problematic     55 - 70    HIGH
+#   Difficult       40 - 55    VERYHIGH
+#   Very serious    < 40       EXTREME
+#
+# The leading "*" line is the fallback for any jurisdiction not listed
+# (RSF ranks 180; some UN members and most territories are unranked).
+
+*   HIGH
+AD  HIGH      #  60 Andorra  63.91  Problematic
+AE  EXTREME   # 158 United Arab Emirates  30.86  Very serious
+AF  EXTREME   # 175 Afghanistan  19.51  Very serious
+AG  HIGH      #  57 OECS bloc  64.60  Problematic
+AI  HIGH      #  57 OECS bloc  64.60  Problematic
+AL  HIGH      #  83 Albania  56.52  Problematic
+AM  HIGH      #  50 Armenia  67.02  Problematic
+AO  VERYHIGH  # 109 Angola  48.82  Difficult
+AR  VERYHIGH  #  98 Argentina  52.44  Difficult
+AT  MEDIUM    #  19 Austria  79.43  Satisfactory
+AU  MEDIUM    #  33 Australia  74.58  Satisfactory
+AZ  EXTREME   # 171 Azerbaijan  23.95  Very serious
+BA  VERYHIGH  #  90 Bosnia-Herzegovina  54.29  Difficult
+BD  EXTREME   # 152 Bangladesh  33.05  Very serious
+BE  MEDIUM    #  16 Belgium  81.17  Satisfactory
+BF  VERYHIGH  # 110 Burkina Faso  48.52  Difficult
+BG  HIGH      #  71 Bulgaria  60.28  Problematic
+BH  EXTREME   # 170 Bahrain  24.84  Very serious
+BI  VERYHIGH  # 119 Burundi  46.14  Difficult
+BJ  VERYHIGH  # 113 Benin  47.39  Difficult
+BN  VERYHIGH  #  96 Brunei  52.58  Difficult
+BO  VERYHIGH  #  91 Bolivia  54.25  Difficult
+BR  HIGH      #  52 Brazil  66.37  Problematic
+BT  EXTREME   # 150 Bhutan  33.50  Very serious
+BW  HIGH      #  63 Botswana  62.89  Problematic
+BY  EXTREME   # 165 Belarus  27.72  Very serious
+BZ  HIGH      #  66 Belize  61.66  Problematic
+CA  MEDIUM    #  20 Canada  78.76  Satisfactory
+CD  VERYHIGH  # 130 Democratic Republic of the Congo  42.16  Difficult
+CF  HIGH      #  81 Central African Republic  56.73  Problematic
+CG  HIGH      #  68 Congo-Brazzaville  61.21  Problematic
+CH  MEDIUM    #   8 Switzerland  84.83  Satisfactory
+CI  HIGH      #  54 Côte d'Ivoire  66.27  Problematic
+CL  HIGH      #  70 Chile  60.84  Problematic
+CM  VERYHIGH  # 133 Cameroon  40.88  Difficult
+CN  EXTREME   # 178 China  13.85  Very serious
+CO  VERYHIGH  # 102 Colombia  51.66  Difficult
+CR  MEDIUM    #  38 Costa Rica  72.35  Satisfactory
+CU  EXTREME   # 160 Cuba  29.22  Very serious
+CV  MEDIUM    #  40 Cabo Verde  71.98  Satisfactory
+CY  HIGH      #  80 Cyprus  56.91  Problematic
+CZ  MEDIUM    #  11 Czechia  83.01  Satisfactory
+DE  MEDIUM    #  14 Germany  82.17  Satisfactory
+DJ  EXTREME   # 167 Djibouti  25.04  Very serious
+DK  LOW       #   4 Denmark  88.47  Good
+DM  HIGH      #  57 OECS bloc  64.60  Problematic
+DO  HIGH      #  44 Dominican Republic  69.73  Problematic
+DZ  EXTREME   # 145 Algeria  37.38  Very serious
+EC  VERYHIGH  # 125 Ecuador  44.37  Difficult
+EE  LOW       #   3 Estonia  88.54  Good
+EG  EXTREME   # 169 Egypt  24.92  Very serious
+ER  EXTREME   # 180 Eritrea  10.24  Very serious
+ES  MEDIUM    #  29 Spain  75.42  Satisfactory
+ET  EXTREME   # 148 Ethiopia  34.66  Very serious
+FI  LOW       #   6 Finland  86.22  Good
+FJ  MEDIUM    #  24 Fiji  76.76  Satisfactory
+FR  MEDIUM    #  25 France  76.68  Satisfactory
+GA  MEDIUM    #  43 Gabon  70.57  Satisfactory
+GB  MEDIUM    #  18 United Kingdom  79.45  Satisfactory
+GD  HIGH      #  57 OECS bloc  64.60  Problematic
+GE  VERYHIGH  # 135 Georgia  40.77  Difficult
+GH  MEDIUM    #  39 Ghana  72.20  Satisfactory
+GM  HIGH      #  46 Gambia  69.42  Problematic
+GN  VERYHIGH  # 111 Guinea  48.45  Difficult
+GQ  VERYHIGH  #  94 Equatorial Guinea  52.79  Difficult
+GR  HIGH      #  86 Greece  55.05  Problematic
+GT  VERYHIGH  # 128 Guatemala  43.21  Difficult
+GW  VERYHIGH  # 100 Guinea Bissau  51.99  Difficult
+GY  HIGH      #  76 Guyana  59.58  Problematic
+HK  EXTREME   # 140 Hong Kong  39.49  Very serious
+HN  VERYHIGH  # 132 Honduras  41.02  Difficult
+HR  HIGH      #  53 Croatia  66.31  Problematic
+HT  VERYHIGH  # 107 Haiti  50.32  Difficult
+HU  HIGH      #  74 Hungary  59.85  Problematic
+ID  VERYHIGH  # 129 Indonesia  43.02  Difficult
+IE  LOW       #   7 Ireland  85.93  Good
+IL  VERYHIGH  # 116 Israel  46.46  Difficult
+IN  EXTREME   # 157 India  31.96  Very serious
+IQ  EXTREME   # 162 Iraq  28.85  Very serious
+IR  EXTREME   # 177 Iran  17.45  Very serious
+IS  MEDIUM    #  12 Iceland  82.77  Satisfactory
+IT  HIGH      #  56 Italy  65.16  Problematic
+JM  MEDIUM    #  26 Jamaica  75.87  Satisfactory
+JO  EXTREME   # 142 Jordan  39.33  Very serious
+JP  HIGH      #  62 Japan  62.90  Problematic
+KE  VERYHIGH  # 106 Kenya  50.51  Difficult
+KG  EXTREME   # 146 Kyrgyzstan  35.06  Very serious
+KH  EXTREME   # 151 Cambodia  33.28  Very serious
+KM  HIGH      #  72 Comoros  60.23  Problematic
+KN  HIGH      #  57 OECS bloc  64.60  Problematic
+KP  EXTREME   # 179 North Korea  12.67  Very serious
+KR  HIGH      #  47 South Korea  69.12  Problematic
+KW  VERYHIGH  # 136 Kuwait  40.44  Difficult
+KZ  EXTREME   # 149 Kazakhstan  34.41  Very serious
+LA  EXTREME   # 154 Laos  32.54  Very serious
+LB  VERYHIGH  # 115 Lebanon  46.49  Difficult
+LC  HIGH      #  57 OECS bloc  64.60  Problematic
+LI  MEDIUM    #  13 Liechtenstein  82.62  Satisfactory
+LK  VERYHIGH  # 134 Sri Lanka  40.77  Difficult
+LR  HIGH      #  58 Liberia  64.54  Problematic
+LS  VERYHIGH  #  89 Lesotho  54.37  Difficult
+LT  MEDIUM    #  15 Lithuania  81.34  Satisfactory
+LU  MEDIUM    #   9 Luxembourg  84.14  Satisfactory
+LV  MEDIUM    #  17 Latvia  81.00  Satisfactory
+LY  VERYHIGH  # 138 Libya  40.34  Difficult
+MA  VERYHIGH  # 105 Morocco / Western Sahara  50.55  Difficult
+MD  MEDIUM    #  31 Moldova  74.77  Satisfactory
+ME  MEDIUM    #  41 Montenegro  71.80  Satisfactory
+MG  VERYHIGH  # 103 Madagascar  50.95  Difficult
+MK  HIGH      #  45 North Macedonia  69.49  Problematic
+ML  VERYHIGH  # 121 Mali  45.63  Difficult
+MM  EXTREME   # 166 Myanmar  26.38  Very serious
+MN  HIGH      #  85 Mongolia  55.79  Problematic
+MR  HIGH      #  61 Mauritania  63.36  Problematic
+MS  HIGH      #  57 OECS bloc  64.60  Problematic
+MT  HIGH      #  67 Malta  61.44  Problematic
+MU  MEDIUM    #  42 Mauritius  70.92  Satisfactory
+MV  VERYHIGH  # 108 Maldives  49.23  Difficult
+MW  HIGH      #  69 Malawi  60.96  Problematic
+MX  VERYHIGH  # 122 Mexico  45.23  Difficult
+MY  VERYHIGH  #  95 Malaysia  52.73  Difficult
+MZ  VERYHIGH  #  99 Mozambique  52.27  Difficult
+NA  MEDIUM    #  23 Namibia  76.97  Satisfactory
+NE  VERYHIGH  # 120 Niger  46.02  Difficult
+NG  VERYHIGH  # 112 Nigeria  48.11  Difficult
+NI  EXTREME   # 168 Nicaragua  24.98  Very serious
+NL  LOW       #   2 Netherlands  88.92  Good
+NO  LOW       #   1 Norway  92.72  Good
+NP  VERYHIGH  #  87 Nepal  54.80  Difficult
+NZ  MEDIUM    #  22 New Zealand  77.38  Satisfactory
+OM  VERYHIGH  # 127 Oman  43.67  Difficult
+PA  HIGH      #  65 Panama  62.14  Problematic
+PE  EXTREME   # 144 Peru  37.86  Very serious
+PG  HIGH      #  73 Papua New Guinea  60.11  Problematic
+PH  VERYHIGH  # 114 Philippines  46.79  Difficult
+PK  EXTREME   # 153 Pakistan  32.61  Very serious
+PL  MEDIUM    #  27 Poland  75.52  Satisfactory
+PS  EXTREME   # 156 Palestine  32.09  Very serious
+PT  MEDIUM    #  10 Portugal  83.71  Satisfactory
+PY  VERYHIGH  #  88 Paraguay  54.67  Difficult
+QA  HIGH      #  75 Qatar  59.79  Problematic
+RO  HIGH      #  49 Romania  67.71  Problematic
+RS  VERYHIGH  # 104 Serbia  50.79  Difficult
+RU  EXTREME   # 172 Russia  23.15  Very serious
+RW  EXTREME   # 139 Rwanda  39.58  Very serious
+SA  EXTREME   # 176 Saudi Arabia  19.11  Very serious
+SC  MEDIUM    #  35 Seychelles  73.04  Satisfactory
+SD  EXTREME   # 161 Sudan  29.02  Very serious
+SE  LOW       #   5 Sweden  87.61  Good
+SG  VERYHIGH  # 123 Singapore  44.57  Difficult
+SI  MEDIUM    #  36 Slovenia  72.88  Satisfactory
+SK  MEDIUM    #  37 Slovakia  72.71  Satisfactory
+SL  HIGH      #  79 Sierra Leone  57.06  Problematic
+SN  HIGH      #  78 Senegal  58.11  Problematic
+SO  VERYHIGH  # 126 Somalia  43.84  Difficult
+SR  MEDIUM    #  34 Suriname  73.20  Satisfactory
+SS  VERYHIGH  # 118 South Sudan  46.16  Difficult
+SV  EXTREME   # 143 El Salvador  38.88  Very serious
+SY  EXTREME   # 141 Syria  39.44  Very serious
+SZ  VERYHIGH  # 101 Eswatini  51.94  Difficult
+TD  VERYHIGH  #  93 Chad  53.90  Difficult
+TG  VERYHIGH  #  97 Togo  52.56  Difficult
+TH  VERYHIGH  #  92 Thailand  53.97  Difficult
+TJ  EXTREME   # 155 Tajikistan  32.22  Very serious
+TL  MEDIUM    #  30 Timor-Leste  75.29  Satisfactory
+TM  EXTREME   # 173 Turkmenistan  23.06  Very serious
+TN  VERYHIGH  # 137 Tunisia  40.43  Difficult
+TO  HIGH      #  51 Tonga  66.62  Problematic
+TR  EXTREME   # 163 Türkiye  27.94  Very serious
+TT  MEDIUM    #  32 Trinidad and Tobago  74.70  Satisfactory
+TW  MEDIUM    #  28 Taiwan  75.44  Satisfactory
+TZ  VERYHIGH  # 117 Tanzania  46.22  Difficult
+UA  HIGH      #  55 Ukraine  66.10  Problematic
+UG  VERYHIGH  # 131 Uganda  41.98  Difficult
+US  HIGH      #  64 United States  62.61  Problematic
+UY  HIGH      #  48 Uruguay  68.72  Problematic
+UZ  EXTREME   # 147 Uzbekistan  34.95  Very serious
+VC  HIGH      #  57 OECS bloc  64.60  Problematic
+VE  EXTREME   # 159 Venezuela  30.48  Very serious
+VG  HIGH      #  57 OECS bloc  64.60  Problematic
+VN  EXTREME   # 174 Vietnam  21.15  Very serious
+WS  HIGH      #  59 Samoa  64.53  Problematic
+XK  HIGH      #  84 Kosovo  55.89  Problematic
+YE  EXTREME   # 164 Yemen  27.89  Very serious
+ZA  MEDIUM    #  21 South Africa  77.95  Satisfactory
+ZM  HIGH      #  77 Zambia  58.58  Problematic
+ZW  VERYHIGH  # 124 Zimbabwe  44.37  Difficult
