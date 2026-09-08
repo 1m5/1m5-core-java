@@ -1,7 +1,9 @@
 # 1M5 Core — TODO
 
 Phased roadmap. Everything here is scoped to `1m5-core-java` unless a section says
-otherwise. See [`DESIGN.md`](DESIGN.md) for the architecture each item builds toward.
+otherwise. See [`DESIGN.md`](DESIGN.md) for the architecture each item builds
+toward, and `1m5-docs/TODO.md` for where these milestones sit in the program
+roadmap.
 
 ---
 
@@ -9,13 +11,15 @@ otherwise. See [`DESIGN.md`](DESIGN.md) for the architecture each item builds to
 
 - [x] Rename to `network.onemfive:1m5-core:0.1.0`, package `network.onemfive.core`,
       Java 17 target.
-- [x] `pom.xml` declares one `resolvingarchitecture` dependency - `service-bus:1.5.0`
-      - taking `seda-bus:1.3.1` and `common:1.2.0` transitively.
+- [x] `pom.xml`: `service-bus:1.5.0` (bringing `seda-bus:1.3.1` + `common` transitively)
+      plus direct pins `common:1.3.0` and `did:1.3.0`, and `i2p:1.7.1` /
+      `tor-client:1.2.1` behind config flags.
 - [x] `service-bus-java` upgraded to carry the generic service-management weight
       (Class-based API, discovery, `awaitRunning`, pause/restart, reusable `Daemon`);
       `seda-bus-java` retargeted to Java 11. `1m5-core` consumes both.
 - [x] `Core` = thin runtime handle (bus + ManCon state); `Daemon` extends
-      `ra.servicebus.Daemon` and only fills the 1M5 hooks.
+      `ra.servicebus.Daemon` and only fills the 1M5 hooks (incl. the `1m5.pass`
+      config-or-env resolution + warning).
 - [x] Service taxonomy: `CoreService` / `BusinessService` / `DataService` /
       `ProtocolService` + `Transport`, `ServiceType`. Protocol adapters discovered
       via `serviceBus.findRunningServices(ProtocolService.class)`.
@@ -23,80 +27,159 @@ otherwise. See [`DESIGN.md`](DESIGN.md) for the architecture each item builds to
       `ManConStatusListener`, `SituationalAwareness`.
 - [x] `RoutingService` skeleton — picks the first ready `ProtocolService`, pushes one
       `SEND` hop, applies ManCon delay/copy parameters.
-- [x] `IdentityService` skeleton — establishes a stable node key (secp256k1 via JCA
-      when available, else placeholder).
+- [x] `IdentityService` — real secp256k1 / BIP-340 node identity via `did-java`
+      `ra.did.nostr`, sealed at rest, stable across restart, `signAsNode`,
+      `GET_NODE_IDENTITY` over the bus. (Was a placeholder skeleton in P0; delivered
+      in P2 scope — see below.)
 - [x] `PeerDirectory` skeleton.
-- [x] `CoreSmokeTest` (bus + slip, single and multi-hop) and `RoutingServiceTest`
-      (router selects a connected protocol) — green.
+- [x] `CoreSmokeTest`, `RoutingServiceTest`, `ProtocolIntegrationTest` — green.
 - [x] Rewrite `README.md`, `DESIGN.md`; drop stale `RELEASE-NOTES.md`, `BUILD.md`,
       `ops/`.
 
 ---
 
-## P1 — Router parity with `CRNetworkManagerService`
+## P1 — Router
 
-Port the escalation logic from `onemfive.routing.CRNetworkManagerService`:
+### Stage 1a — skeleton hardening + full test suite + the 2 stack defects
 
-- [ ] ManCon x (web request | P2P) decision matrix.
-- [ ] Network selection by ManCon (LOW/MEDIUM -> Tor/I2P by address; HIGH -> I2P->Tor;
-      VERYHIGH -> I2P + random delays; EXTREME/NEO -> non-internet relay).
-- [ ] Relay-peer selection: "blocked on Tor -> use I2P to reach a peer that isn't",
-      and the Bluetooth/WiFi/Satellite/FSRadio/LiFi escalation ladder.
-- [ ] `RelayedExternalRoute` hops (origination/destination peers, per-hop delay and
-      copy parameters).
-- [ ] Message hold + retry when no path exists (replace the current error-and-drop).
-- [ ] `ManConStatus.maxAvailable` probing from timestamped per-level connectivity
-      tests; fire `ManConStatusListener`s on change.
+- [ ] Fix **`ManConStatus.select()` always returns `NONE`**: drive `maxAvailable`
+      from timestamped per-level connectivity probes; fire `ManConStatusListener`s
+      on change. Until then the VERYHIGH/EXTREME/NEO bands are dead code.
+- [ ] Depend on the `ra-common-java 1.3.2` fix for `BaseRoute.fromMap` `"routedId"`
+      (see External library follow-up).
+- [ ] Set `ServiceLevel` on `DataService` channels (`AtLeastOnce`/`ExactlyOnce`) so
+      a crash mid routing-slip does not silently drop the envelope.
+- [ ] Tolerate envelopes arriving mid-startup (or consume the `service-bus`
+      readiness gate once it lands).
+- [ ] **Full verification test suite** — the gate for "verified as designed":
+  - [ ] `BusSlipTest` — single- and multi-hop routing-slip walk, producer callback
+        fires once at slip end, LIFO order.
+  - [ ] `SlipJsonRoundTripTest` — `Envelope` + every `Route` impl survive
+        `toMap`/`fromMap` (incl. `routeId`, post-1.3.2).
+  - [ ] `ServiceTaxonomyTest` — `Business`/`Data`/`Protocol` registration, status,
+        `ServiceType`.
+  - [ ] `ProtocolDiscoveryTest` — `findRunningServices(ProtocolService.class)`,
+        ready/not-ready filtering, `channelName()` aliasing.
+  - [ ] `ProtocolSeamTest` — `NetworkServiceProtocol` lifecycle + status + `sendOut`
+        with a mock `NetworkService` (extends today's `ProtocolIntegrationTest`).
+  - [ ] `ManConBandsTest` — `fromSensitivity`, `select()` clamping across the full
+        band, listener fires, delay/copy parameters applied per level.
+  - [ ] `IdentityOverBusTest` — `GET_NODE_IDENTITY` returns public summary only;
+        secret never on the bus; sealed/plaintext/upgrade/wrong-pass paths.
+  - [ ] `DaemonLifecycleTest` — start → awaitRunning → stop; `Core.reset()`;
+        directory prep; `1m5.pass` config-vs-env warning.
+  - [ ] `CoreClientContractTest` (abstract) run against `EmbeddedCoreClient`.
+
+### Stage 1b — `Sender`-parity router
+
+Bring `RoutingService` to parity with `1m5-android`'s `RouterService.Sender`
+(the hard prerequisite for any Android cutover):
+
+- [ ] Address-matched transport selection: choose the transport for which the peer
+      has an address **and** which is currently connected.
+- [ ] Cross-transport relay fallback ("blocked on Tor → reach the peer over I2P");
+      `RelayedExternalRoute` hops with origination/destination peers.
+- [ ] Message hold-queue + retry when no path exists, replacing error-and-drop:
+      map onto SEDA retry + envelope delay parameters + bus dead-letter.
+- [ ] Inbound dedupe.
 - [ ] Real peer store: add `resolvingarchitecture:network-manager`, back
       `PeerDirectory` with `ra.networkmanager.InMemoryPeerDB` / `P2PRelationship`
       (ack latency, reliability scoring, relationship graph).
-- [ ] Router unit tests per ManCon level and per blocked-network scenario.
+- [ ] Router scenario tests: per blocked-network case, relay selection, backoff,
+      hold-and-resume.
+
+### Later — full `CRNetworkManagerService` ladder
+
+- [ ] ManCon × (web request | P2P) decision matrix.
+- [ ] Network selection by ManCon (LOW/MEDIUM → Tor/I2P by address; HIGH → I2P→Tor;
+      VERYHIGH → I2P + random delays; EXTREME/NEO → non-internet relay).
+- [ ] The Bluetooth/WiFi/Satellite/FSRadio/LiFi escalation ladder.
+- [ ] Random delays that ratchet with ManCon; NEO multi-copy, long-delay,
+      mnemonic-only key.
+- [ ] Router unit tests per ManCon level.
 
 ---
 
 ## P2 — Identity (ADR-0002)
 
-- [ ] Bundle a real secp256k1 implementation (evaluate a small vendored primitive vs.
-      `bcprov`; Android already ships BouncyCastle).
-- [ ] x-only public key derivation; hex + optional `npub` (Bech32).
-- [ ] BIP-340 Schnorr sign/verify; SHA-256 event ids; canonical event serialization,
-      with test vectors (valid + malformed).
-- [ ] Node identity + user identities; key-domain separation (messaging / encryption
-      / wallet / transport / device / session).
-- [ ] Private keys encrypted at rest with a `1m5.pass`-derived key; never logged.
-- [ ] Legacy `DIDService` (read-only) via `resolvingarchitecture:did` for verifying
-      old contacts.
-- [ ] OpenPGP -> Nostr migration proof: create + verify, binding legacy fingerprint,
-      new pubkey, app context, timestamp, user intent.
+**Delivered via `did-java` / `did-ts` / `did-vectors`:**
+
+- [x] Real secp256k1 (ACINQ `secp256k1-kmp` JNI); x-only public-key derivation;
+      hex / `npub` / `did:nostr`.
+- [x] BIP-340 Schnorr sign/verify; SHA-256 event ids; NIP-01 canonical event
+      serialization; field validation with positive + negative test vectors;
+      `did-vectors` conformance suite as a test gate.
+- [x] Node identity: stable across restart; `signAsNode`; `GET_NODE_IDENTITY`
+      (status only) over the bus.
+- [x] Private node secret encrypted at rest (`NostrIdentityStore`, Argon2id +
+      AES-256-GCM); `1m5.pass` config-or-env; plaintext→sealed upgrade; never
+      logged.
+- [x] Legacy OpenPGP (`ra.did.openpgp`) kept read-only. No migration code path
+      (1M5 has no user identities to migrate).
+- [x] Attestations (kind 30100), guardian recovery / rotation records
+      (kinds 30101–30103).
+
+**Still open:**
+
+- [ ] User identities distinct from the node identity; multiple scoped identities.
+- [ ] Full key-domain separation (messaging / encryption / wallet / transport /
+      device / session) enforced in code.
 - [ ] Contact model + trust states (`unverified`, `verified_by_qr`,
       `verified_by_openpgp_migration`, `verified_by_existing_conversation`,
-      `rotated`, `blocked`, `compromised`); key rotation records.
+      `rotated`, `blocked`, `compromised`).
 - [ ] E2EE envelope: secp256k1 ECDH + HKDF-SHA256 + an AEAD (ChaCha20-Poly1305 /
-      AES-GCM); session keys; replay protection.
-- [ ] Threat-model the identity + encryption design before calling it stable; invite
-      cryptographic review.
+      AES-GCM); session keys; replay protection; wrong-recipient / tampered /
+      replay tests.
+- [ ] Threat-model the identity + encryption design before calling it stable;
+      invite cryptographic review.
 
 ---
 
-## P3 — Default protocol services
+## Embedding contract — `1m5-core-client`
+
+New zero-dependency module `network.onemfive:1m5-core-client:0.1.0`. See
+[`DESIGN.md`](DESIGN.md) §"The embedding contract" and
+`1m5-docs/architecture/README.md` §"The 1M5 Core contract" (the `Msg` / `CoreClient`
+shape must stay identical across those and `1m5-android/DESIGN.md`).
+
+- [ ] `CoreClient` interface (~8 verbs), `Msg` (flat: `id`, `to`, `sender`,
+      `Map<String,String> headers`, `byte[] payload`, `Deque<String> slip`,
+      `int attempts`; routing scalars in reserved `x.*` headers), `ProtocolHandle`,
+      `CoreInbound`, `ReplyHandler`, `TransportStatus`, `IdentityStatus`.
+- [ ] `ProtocolService.channelName()`; `RoutingService.choose()` routes on it, not
+      `getClass().getName()`; `Core` `name → service` alias table.
+- [ ] `EmbeddedCoreClient` (in `1m5-core-java`): `Msg` ↔ `ra.common.Envelope`
+      translation over `Core.get()`; `x.*` headers ↔ `Envelope` scalar setters;
+      slip reversed front-to-back ↔ LIFO stack; `HandleBackedProtocolService`
+      wrapping a `ProtocolHandle`.
+- [ ] `CoreClientContractTest` (abstract) — runs against `EmbeddedCoreClient` now,
+      `HttpCoreClient` / `RustCoreClient` later.
+- [ ] JSON golden files for the `Msg` wire form, shared with `1m5-core-rust`
+      (`did-vectors`-style fixtures). This JSON is also the ADR-0003 RPC envelope
+      encoding.
+
+---
+
+## P3 — Default protocol services & the node RPC API
 
 - [x] `NetworkServiceProtocol` — adapter bridging any `ra.common.network.NetworkService`
       to `ProtocolService` (lifecycle + status + `sendOut`).
 - [~] `I2PProtocolService` — `NetworkServiceProtocol` around `ra.i2p.I2PService`
       (`i2p-java` 1.7.1). Wired + `Daemon` registers it behind `1m5.i2p.enabled=true`;
-      the adapter/discovery/routing path is tested with a mock `NetworkService`. Not
-      yet run against a live I2P network (embedded reseed; `ra.i2p.mode=local` needs
-      field testing - see i2p-java's TODO).
-- [ ] Router (P1): set real `SimpleExternalRoute` destination `NetworkPeer`s (I2P
-      base64 address) so `I2PService.sendOut` has a destination.
+      adapter/discovery/routing path tested with a mock `NetworkService`. Not yet
+      run against a live I2P network.
+- [ ] Router (Stage 1b): set real `SimpleExternalRoute` destination `NetworkPeer`s
+      (I2P base64 address) so `I2PService.sendOut` has a destination.
 - [~] `TorProtocolService` — `NetworkServiceProtocol` around `ra.tor.TORClientService`
-      (`tor-client-java` 1.2.1, which brings `http-client` -> jetty/okhttp). Wired +
-      `Daemon` registers it behind `1m5.tor.enabled=true`; adapter path shares the
-      `ProtocolIntegrationTest` coverage. Not run against a live Tor daemon (local
-      Tor required). Tor is local-only (no embedded).
+      (`tor-client-java` 1.2.1). Wired + `Daemon` registers it behind
+      `1m5.tor.enabled=true`. Not run against a live Tor daemon. Tor is local-only.
 - [ ] `HTTPProtocolService` — `resolvingarchitecture:http-client`; also hosts the
-      localhost Envelope-JSON API on `127.0.0.1:2018`
-      (`ra.http.EnvelopeJSONDataHandler`) so `1m5-desktop-java` keeps working.
+      **localhost node RPC API**. Per `ADR-0003-node-client-split-and-rpc-api.md`
+      this is a protobuf `Envelope` + service schema with gRPC framing (Connect for
+      browser clients), not the old plain Envelope-JSON HTTP handler. The `.proto`
+      is the durable artifact — define it (in `1m5-proto` or `1m5-docs/proto/`)
+      first, code-generate per node and client.
+- [ ] Mirror the RPC API in `1m5-core-rust` (Redox forces lockstep).
 - [ ] `BluetoothProtocolService` — `resolvingarchitecture:bluetooth-client`.
 - [ ] `NotificationService` registered (status/event pub-sub; `BaseService.updateStatus`
       routes there).
@@ -108,41 +191,51 @@ Port the escalation logic from `onemfive.routing.CRNetworkManagerService`:
 
 ## Deferred — separate efforts, not this repo (tracked for visibility)
 
-- [ ] **Desktop**: point `1m5-desktop-java`'s pom at
-      `network.onemfive:1m5-core`; verify `DesktopClient`'s `ControlCommand` /
-      `addRoute` envelope shapes against the new API handler; optionally an
-      embed-`Core` path instead of HTTP.
-- [ ] **Android host**: `Core` inside a foreground `Service`; Android
-      `ProtocolService` adapters over the embedded I2P router and `tor-android`;
-      `Intent` <-> `Envelope` boundary; retire duplicated
-      `network.onemfive.android` router / identity / json code.
+- [ ] **Desktop**: point `1m5-desktop-java`'s pom at `network.onemfive:1m5-core`
+      (or `1m5-common` + the RPC client); verify `DesktopClient`'s `ControlCommand`
+      / `addRoute` envelope shapes against the RPC API.
+- [ ] **Android host**: authoritative plan in `1m5-android/DESIGN.md` §"1M5 Core
+      Integration" and `1m5-android/TODO.md` §"1M5 Core Integration". `:core-host`
+      module; `I2PProtocolAdapter` / `TorProtocolAdapter` wrapping Remnant's
+      existing embedded transports; `AndroidPassphraseProvider`; `OneMFiveApplication`
+      compat shim; service-by-service cutover. No code in either repo this pass.
+- [ ] **Rust core as an Android option**: `1m5-core-rust` gaps to close first —
+      real secp256k1 + BIP-340 + pass `did-vectors`; Argon2id + AES-256-GCM sealed
+      store; `Sender`-parity router; `DataService` durable-state parity;
+      `max_available` probing; a `1m5-core-rust-ffi` UniFFI crate exposing the
+      `CoreClient` verbs + `ProtocolHandle`/`CoreInbound` as callback interfaces;
+      `cargo-ndk` + `.aar` packaging; a parity suite + shared golden JSON.
 
 ## `1m5-common` — keeps `1m5-desktop-java` on Java 11
-
-`1m5-desktop-java` compiles against this jar today only for `ManCon` /
-`ManConStatus` / `ManConStatusListener` (everything else it uses is transitive
-`ra.*`), and it talks to the daemon over HTTP rather than embedding it.
 
 - [ ] Create `network.onemfive:1m5-common` (Java 11): `ManCon`, `ManConStatus`,
       `ManConStatusListener`, and any other model shared between core, desktop, and
       a future Android host.
 - [ ] `1m5-core` depends on `1m5-common`; re-export nothing desktop-specific.
 - [ ] (separate effort, deferred) point `1m5-desktop-java` at `1m5-common` +
-      `ra-common` instead of the full core jar.
+      `ra-common` instead of the full core jar. ADR-0003 notes `1m5-client-java`
+      is essentially this extraction generalised.
+
+## Dependency distribution — build-locally-and-pull-in
+
+- [ ] `tools/build-ra-libs.sh` — build the sibling repos in dependency order
+      (`ra-common-java` → `seda-bus-java` → `service-bus-java` → `did-java` →
+      `i2p-java` / `tor-client-java` → `1m5-core-java`), `mvn install` each.
+- [ ] `DEPENDENCIES.md` — the order, the versions, and the `mavenLocal()` wiring
+      consumers need. Referenced by `1m5-android/TODO.md` Stage 0.
 
 ## External library follow-up — not this repo
 
-- [x] `seda-bus-java` -> `1.3.1` (compile target Java 17 -> 11).
-- [x] `service-bus-java` -> `1.5.0`: `seda-bus` pin bumped to `1.3.1`; Class-based
-      API + discovery + `awaitRunning` + pause/restart + per-service status +
-      reusable `Daemon`; fixed `Properties.contains`, the `gracefulShutdown` wait
-      loop, and `PersistDeadLetter` rotation. (See that repo's `TODO.md` for its
-      remaining backlog: readiness gate, health policy, `ControlCommand` responses.)
-- [ ] `ra-common-java`: fix `BaseRoute.fromMap` `"routedId"` typo;
-      `TextMessage.toMap` / `fromMap` do not serialize their fields.
+- [x] `seda-bus-java` → `1.3.1` (compile target Java 17 → 11).
+- [x] `service-bus-java` → `1.5.0`: Class-based API + discovery + `awaitRunning` +
+      pause/restart + per-service status + reusable `Daemon`.
+- [ ] **`ra-common-java 1.3.2`** (scheduled — Stage 1a depends on it):
+  - [ ] fix `BaseRoute.fromMap` `"routedId"` → `"routeId"`;
+  - [ ] `TextMessage.toMap` / `fromMap` do not serialize their fields.
 
 ## Later
-- [ ] `1m5-transports` module per `1m5-docs/ARCHITECTURE.md`.
+
+- [ ] `1m5-transports` module per `1m5-docs/architecture/README.md`.
 - [ ] Adaptive SEDA controller (`seda-bus` 2.0): runtime per-stage thread re-tuning,
       automatic load shedding.
 - [ ] User-selectable routing modes (max privacy / max reliability / lowest battery /

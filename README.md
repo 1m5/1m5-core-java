@@ -22,7 +22,7 @@ platform-specific dependencies, so the same core can run as a headless daemon (f
 
 One dependency chain, declared as one dependency (`service-bus`):
 
-    1m5-core         (network.onemfive:1m5-core)      <-- this module
+    1m5-core-java     (network.onemfive:1m5-core)      <-- this module
       service taxonomy (business / data / protocol),
       the 1M5 RoutingService, ManCon model, identity service,
       Daemon (extends ra.servicebus.Daemon) + Core runtime handle
@@ -114,4 +114,4 @@ adoption of this core is deferred roadmap material in [`TODO.md`](TODO.md).
 
 ## Licensing
 
-Copyright Unrecognized. See `1m5-docs` for project licensing direction.
+Not decided yet. No license is asserted on this repository at this time.

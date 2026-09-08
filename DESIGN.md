@@ -5,17 +5,27 @@
 1M5 began as a desktop application exploring one idea: communications and Bitcoin
 activity should route intelligently across whatever network paths remain available,
 instead of depending on a single channel. That routing model is the project's
-strategic asset. It has been re-implemented three times with no shared code — a thin
-JVM scaffold (`onemfive:platform`), a complete Android-native version in
-`1m5-android`, and an abandoned Rust attempt.
+strategic asset. It has been re-implemented several times with no shared code — a
+thin JVM scaffold (`onemfive:platform`) and a complete Android-native version in
+`1m5-android`.
 
 `1m5-core-java` is the consolidation: one reusable, transport-agnostic core built on
 the `resolvingarchitecture` bus libraries, able to run headless for
 `1m5-desktop-java` today and to be hosted inside `1m5-android` later.
+`1m5-core-rust` is a parallel, thinner implementation of the same design for
+small-footprint / Redox hosts (`1m505`); the two are kept in step, and the
+`CoreClient` contract below is the boundary that lets a host pick either one.
 
-This document describes the target design. Some of it is implemented (the bus stack,
-the service taxonomy, the router seam, the embedding facade); the rest is staged in
-[`TODO.md`](TODO.md) and called out below as such.
+This document describes the target design of the **Java** implementation. It is the
+implementation companion to `1m5-docs/architecture/README.md` (the mission
+architecture — the layers, the `CoreClient` contract, the router target, the
+per-language plan). A second implementation, `1m5-core-rust`, mirrors this one as a
+thinner skeleton for small-footprint / Redox hosts.
+
+Some of this is implemented (the bus stack, the service taxonomy, the router seam,
+a `did-java`-backed `IdentityService` sealed at rest); the rest is staged in
+[`TODO.md`](TODO.md) and called out below as such. In particular the **escalation
+router is not built** — `RoutingService` currently picks the first ready transport.
 
 ## Goals and constraints
 
@@ -47,13 +57,25 @@ rewrite, not a continuation.
 
 ## The layer stack
 
-`1m5-core` declares **one** `resolvingarchitecture` dependency - `service-bus` - and
-takes the rest of the chain transitively, at the versions `service-bus-java` was
-built and tested against:
+`1m5-core` depends on `service-bus` for the whole bus chain, and adds two direct
+pins that the chain would otherwise supply at older versions:
+
+- `resolvingarchitecture:common:1.3.0` — pinned above the `1.2.0` that
+  `service-bus` / `seda-bus` / `i2p` ask for transitively (1.3.0 fixes `Signature`
+  persistence and drops the unused `Reputation` stub).
+- `resolvingarchitecture:did:1.3.0` — `did-java`, for the Nostr-compatible
+  identity primitive (`ra.did.nostr`) and the read-only legacy OpenPGP keyring
+  (`ra.did.openpgp`); `usb4java` (YubiKey) excluded.
+- `resolvingarchitecture:i2p:1.7.1` and `resolvingarchitecture:tor-client:1.2.1` —
+  wrapped by the default protocol services, registered only behind config flags.
+
+<!-- -->
 
     1m5-core  ->  service-bus  ->  seda-bus  ->  common
+              ->  common:1.3.0  (direct pin)
+              ->  did:1.3.0     (direct pin)
 
-    ra-common        resolvingarchitecture:common:1.2.0        (transitive; Java 8)
+    ra-common        resolvingarchitecture:common:1.3.0        (direct; Java 8)
       Envelope                 wraps every payload; carries the routing slip
       DynamicRoutingSlip       the itinerary - a LIFO stack of Route
       Route / SimpleRoute / SimpleExternalRoute / RelayedExternalRoute
@@ -85,8 +107,9 @@ built and tested against:
 
 `service-bus:1.5.0` pins `seda-bus:1.3.1` (event-driven worker pool - removing a
 ~10 msg/s/channel ceiling - working pub/sub and `pause`, retry + dead-letter,
-hardened persistence). `1m5-core` gets all of that transitively, with no
-`<dependencyManagement>` override.
+hardened persistence). `1m5-core` gets that transitively; only `common` and `did`
+are pinned directly, both to `1.3.0`, via plain `<dependency>` entries (no
+`<dependencyManagement>`).
 
 ### Java version
 
@@ -245,17 +268,45 @@ preference, fallback after failure) can be logged.
 
 ### Skeleton vs. target
 
-The skeleton chooses the first ready protocol (honouring a protocol already named on
-the slip). The **target** ports the full escalation logic from
-`onemfive.routing.CRNetworkManagerService`:
+The skeleton `choose()` is ~15 lines: it returns the first `ProtocolService` that
+reports ready (honouring a protocol already named on the slip by FQCN). There is no
+ManCon-driven network *choice*, no relay, no adapt-on-failure — on `chosen == null`
+it records an error and returns; the slip completes "successfully" with **no hold,
+no retry, no dead-letter**. `PeerDirectory` is dead code.
 
-- ManCon x (web request | P2P) decision matrix;
-- Tor <-> I2P <-> Bluetooth relay selection when the desired network is blocked
-  ("if I'm blocked on Tor, use I2P to reach a peer that isn't");
-- random delays that ratchet up with ManCon;
-- NEO: multiple encrypted copies, delays up to months, mnemonic-only key;
-- message hold + retry when no path exists;
-- `ManConStatus.maxAvailable` probing from timestamped per-level connectivity tests.
+**Two concrete defects sit under the current router and must be fixed first
+(Stage 1a):**
+
+1. **`ManConStatus.select()` always returns `NONE`.** `maxAvailable` is
+   initialised to `ManCon.NONE` (ordinal 6) and never driven from transport
+   readiness, so every request clamps up to `NONE`. The VERYHIGH / EXTREME / NEO
+   delay-and-copy bands are therefore dead code. Fix: probe `maxAvailable` from
+   timestamped per-level connectivity tests and fire `ManConStatusListener`s on
+   change.
+2. **`ra.common.route.BaseRoute.fromMap` reads the key `"routedId"`** (a typo for
+   `"routeId"`), so `routeId` is lost on every JSON round-trip. Fix ships in
+   `ra-common-java 1.3.2` (see [`TODO.md`](TODO.md)); Stage 1a depends on it for
+   slip-round-trip tests.
+
+**Delivery order for the router itself:**
+
+- **Stage 1b — parity with Remnant's `RouterService.Sender`.** Today's Remnant
+  router is *more capable* than this skeleton: address-matched transport selection,
+  cross-transport relay fallback ("blocked on Tor → reach the peer over I2P"), and
+  `RetryStrategy` backoff (20 s → 1 h, max 5 tries / 24 h). Bringing
+  `RoutingService` to Sender-parity — address-matched selection, relay fallback,
+  hold-queue + SEDA retry + envelope delay parameters — is a **hard prerequisite**
+  of any Android cutover; a naive swap before it is a routing regression.
+- **Later — the full `CRNetworkManagerService` ladder.** Port the remaining
+  escalation logic from `onemfive.routing.CRNetworkManagerService`:
+  - ManCon × (web request | P2P) decision matrix;
+  - the Tor ↔ I2P ↔ Bluetooth ↔ WiFi ↔ satellite/radio escalation ladder and
+    `RelayedExternalRoute` hops;
+  - random delays that ratchet up with ManCon;
+  - NEO: multiple encrypted copies, delays up to months, mnemonic-only key.
+
+The mission-level statement of this target is in
+`1m5-docs/architecture/README.md` §"The router — target design".
 
 ---
 
@@ -280,23 +331,53 @@ levels and the full narrative live in `1m5-docs`.
 
 ## Identity — `identity.IdentityService`
 
-A `DataService` owning the node identity (and later user identities and contacts).
+A `DataService` owning the **node** identity (user identities and contacts are P2).
 
-**Direction (1m5-docs ADR-0002):** move from OpenPGP to **Nostr-compatible**
-identity — secp256k1 32-byte private key, x-only public key, hex / optional `npub`,
-BIP-340 Schnorr signatures, SHA-256 event ids, canonical event serialization, keys
-encrypted at rest. Small auditable primitives, **no** Nostr client or relay
-libraries. Legacy OpenPGP (`ra.common.identity.DID` + keyring) is retained
-**read-only** for verifying legacy contacts and OpenPGP->Nostr migration proofs.
+The node identity is a **Nostr-compatible** secp256k1 keypair, derived through
+`did-java`'s `ra.did.nostr` — there is no JCA fallback and no placeholder id:
 
-Key domains stay separate: messaging identity, encryption, wallet, transport, device,
-session. Bitcoin wallet keys must never automatically become messaging identities.
+- `NostrKeyRing` (ACINQ `secp256k1-kmp` / libsecp256k1) does key generation,
+  x-only public-key derivation, and BIP-340 signing. `keyRing.init(props)` loads
+  the backend; if it fails the service logs and stays up (the daemon does not go
+  down over it) but `hasNodeSecret()` is false.
+- Encodings: 32-byte secret, x-only BIP-340 public key, lowercase hex, `npub`,
+  `did:nostr:<hex>` — exposed as `getNodePublicKeyHex()` / `getNodeNpub()` /
+  `getNodeDid()`.
 
-**Skeleton scope:** establish a stable 32-byte node secret and a public id — JCA
-secp256k1 when the JDK provides it, otherwise a `SecureRandom` secret with a
-SHA-256-derived placeholder id (some JDK builds omit secp256k1). Proper point/x-only
-derivation, BIP-340, the event model, encryption-at-rest, and migration proofs need a
-real secp256k1 implementation and are a later phase.
+**At rest.** `IdentityService` sets a `NostrIdentityStore` on
+`<serviceDir>/identity/`. The passphrase is resolved from the `1m5.pass` config
+key first, then the `1m5.pass` environment variable (the `Daemon` warns once when
+neither is set):
+
+- **passphrase present** — the secret is sealed (Argon2id + AES-256-GCM) into
+  `identity/<pubkey>.json`; `node.pub` holds the public key as a pointer.
+- **no passphrase** — the node still gets a real identity, but the secret is
+  written unencrypted to `node.sec` with a warning.
+- **upgrade in place** — the first start with `1m5.pass` set migrates a `node.sec`
+  plaintext secret into a sealed file automatically.
+- If a sealed file exists but no passphrase is available, the node loads its
+  **public** identity only (can verify, cannot `signAsNode`).
+
+**API.** `signAsNode(NostrEvent)` signs in place with the node key (requires
+`hasNodeSecret()`); the language-agnostic `CoreClient` form is
+`byte[] signAsNode(byte[] canonicalEvent)`. Over the bus, `handleDocument` with
+operation `GET_NODE_IDENTITY` returns the public summary only — the secret never
+travels on the bus.
+
+**Legacy OpenPGP** (`ra.common.identity.DID` + `ra.did.openpgp`) stays available
+for **read-only** verification of old contacts and proofs. There is **no
+migration code path** — 1M5 has not been marketed and has no user identities to
+migrate.
+
+**Key domains stay separate** — messaging identity, encryption, wallet, transport,
+device, session. Bitcoin wallet keys must never automatically become messaging
+identities. Any shared-seed derivation needs explicit, documented domain
+separation.
+
+**P2 (see [`TODO.md`](TODO.md)):** user identities distinct from the node
+identity; the full key-domain separation; contact model + trust states; the E2EE
+envelope (secp256k1 ECDH + HKDF-SHA256 + an AEAD); a threat-model pass before the
+identity + encryption design is called stable.
 
 ---
 
@@ -353,19 +434,129 @@ the desktop keeps working unchanged. That needs `resolvingarchitecture:http-clie
 
 ---
 
-## Android reuse (design intent — no Android code in this repo)
+## The embedding contract (`CoreClient`)
 
-The pure-JVM constraint is what makes this possible. A later, separate effort would:
+`Core.get().start(Properties)` + `registerServices` / `awaitServices` / `send` is a
+usable embedding path for a JVM host, but it is **not** language-agnostic:
+`registerService(Class<…>)` instantiates reflectively and keys channels by FQCN,
+and `ra.common.Envelope` carries a polymorphic `DynamicRoutingSlip` of `Route`
+subclasses round-tripped through `Class.forName`. A Rust core cannot satisfy that,
+and the Rust core has already diverged (string-keyed services, a flat `Envelope {
+id, to, sender, headers, payload, slip: VecDeque<String>, attempts }`).
 
-- make `1m5-android`'s `OneMFiveApplication` a thin host: one foreground `Service`
-  that calls `Core.get().start(...)`, registers `IdentityService`, `RoutingService`,
-  and Android `ProtocolService` adapters (embedded I2P router, `tor-android`);
-- map Android `Payload` / `ServiceMessage` onto `Envelope` + `DynamicRoutingSlip`,
-  and the Android `RetryStrategy` onto SEDA retry + envelope delay parameters;
-- translate inbound `Intent`s to `Envelope`s at the host boundary;
-- retire the duplicated `network.onemfive.android` router / identity / json code.
+So the host↔core boundary is a **narrow, language-agnostic facade** in a new
+zero-dependency module, `network.onemfive:1m5-core-client:0.1.0`. Nothing in it
+names a Java class, a JVM type, or a bus primitive. The mission-level statement is
+`1m5-docs/architecture/README.md` §"The 1M5 Core contract"; it must read
+identically there, here, and in `1m5-android/DESIGN.md`.
 
-`1m5-android` is **not** touched by work in this repo.
+**Verbs — `CoreClient` (~8):**
+
+| Verb | Purpose |
+|---|---|
+| `start(Map<String,String> config)` | boot the core with a flat string config |
+| `stop()` | shut the core down |
+| `send(Msg)` | fire-and-forget outbound |
+| `send(Msg, ReplyHandler)` | outbound with a completion callback |
+| `CoreInbound registerProtocol(ProtocolHandle)` | register a transport the host owns; returns the sink the core calls for inbound payloads |
+| `awaitReady(long timeoutMs, String... channels)` | block until named channels are ready |
+| `List<TransportStatus> readyTransports()` | which transports report ready |
+| `IdentityStatus identityStatus()` | node identity summary (public id only) |
+| `byte[] signAsNode(byte[] canonicalEvent)` | BIP-340 sign with the node key |
+
+**The flat envelope — `Msg`:**
+
+    Msg {
+      String              id
+      String              to          // channel name or peer address
+      String              sender
+      Map<String,String>  headers     // routing scalars live in reserved x.* keys
+      byte[]              payload
+      Deque<String>       slip        // channel names, front = next hop
+      int                 attempts
+    }
+
+Routing scalars are carried as reserved `x.*` headers rather than typed fields:
+`x.sensitivity` (0–10), `x.url`, `x.serviceLevel`, `x.delayed` / `x.minDelayMs` /
+`x.maxDelayMs`, `x.copy` / `x.minCopies` / `x.maxCopies`,
+`x.dest.{i2p,tor,bt,peerId}`, `x.relay.peerId`, `x.error.*`.
+
+**Transport registration — callback-shaped:**
+
+    ProtocolHandle {            // the host implements this
+      String          name()   // stable channel name, e.g. "I2P"
+      Network         network()
+      TransportStatus status()
+      boolean         send(Msg) // carry it out over this transport
+    }
+
+    CoreInbound {               // the core returns this
+      void accept(Msg)          // host calls it for every inbound payload
+    }
+
+**Addressing is by stable string channel name**, never by `Class<?>`.
+`ProtocolService` gains a `channelName()`; `RoutingService.choose()` routes on it
+instead of `getClass().getName()`; `Core` keeps a `name → service` alias table (no
+`service-bus` change).
+
+### `EmbeddedCoreClient` (in this module)
+
+`EmbeddedCoreClient implements CoreClient` sits over `Core.get()` and does the
+`Msg` ↔ `ra.common.Envelope` translation:
+
+- `Msg.headers` `x.*` → `Envelope` scalar setters (`setSensitivity`, `setURL`,
+  `setDelayed`/`setMinDelay`/`setMaxDelay`, `setCopy`/…); everything else stays in
+  the `Envelope` headers map.
+- `Msg.slip` is **front-to-back** (front = next hop); it is reversed into the
+  `ra` LIFO `DynamicRoutingSlip` stack internally. The Rust `VecDeque` already
+  matches the contract's order.
+- `registerProtocol(handle)` wraps the `ProtocolHandle` in a synthetic
+  `HandleBackedProtocolService` (`channelName()` = `handle.name()`) and registers
+  it on the bus; the returned `CoreInbound` feeds inbound `Msg`s back through the
+  producer.
+
+### Other implementations satisfy the same interface
+
+- **`HttpCoreClient`** — talks to a node's localhost RPC API (ADR-0003). `Msg`'s
+  JSON encoding *is* that API's envelope encoding, so this is a thin transport
+  shim.
+- **`RustCoreClient`** — a UniFFI binding over `1m5-core-rust` packaged as an
+  `.aar`; `ProtocolHandle` / `CoreInbound` become UniFFI callback interfaces.
+
+An abstract `CoreClientContractTest` runs against `EmbeddedCoreClient` now and the
+others later; JSON golden files are shared with `1m5-core-rust` and follow the
+`did-vectors` fixture style. See ADR-0003 for the node/client split.
+
+## Android reuse
+
+The pure-JVM constraint makes an in-process Android core possible, but the plan
+lives in **`1m5-android/DESIGN.md` §"1M5 Core Integration (Target Architecture)"**,
+which is authoritative for how Remnant adopts this core (`:core-host` module, the
+`I2PProtocolAdapter` / `TorProtocolAdapter` that wrap Remnant's existing embedded
+transports, the `OneMFiveApplication` compatibility shim, the service-by-service
+cutover). That work changes no code in this repo and no code in `1m5-android`
+during the current design pass.
+
+The invariant this repo owns: the core stays **pure JVM** (no `android.*`);
+`ProtocolService` adapters are per-platform; the host translates its own message
+type (`Intent` / `Payload`) to `Msg` at the `CoreClient` boundary.
+
+## Dependency distribution
+
+The `resolvingarchitecture:*` and `network.onemfive:*` libraries are **not
+published to registries**. They are built from local sibling source repos and
+pulled into consumers at build time.
+
+- Provide `tools/build-ra-libs.sh`: build the sibling repos in dependency order
+  (`ra-common-java` → `seda-bus-java` → `service-bus-java` → `did-java` →
+  `i2p-java` / `tor-client-java` → `1m5-core-java`) and `mvn install` each to the
+  local Maven repo, plus a `DEPENDENCIES.md` recording the order and versions.
+- Consumers (including `1m5-android`) add `mavenLocal()` and depend on `1m5-core`
+  as a normal `implementation` — its Maven-Central transitives
+  (`secp256k1-kmp-jni-*`, net.i2p, tor) resolve normally. This is preferred over
+  hand-curating a `src/dist` jar closure.
+- The `1m5-android` `src/dist` `fileTree` slot is reserved for artifacts that are
+  not Maven modules — notably a future `1m5-core-rust` `.aar`.
 
 ---
 
@@ -390,9 +581,19 @@ dead-letter: `~/.ra/ra.servicebus.ServiceBus/deadLetter.json`.
 ## Known issues and decisions
 
 - **Slip is LIFO.** `Envelope.addRoute` pushes. Use the one-hop-at-a-time router
-  pattern; kept LIFO for `ra-common` compatibility.
+  pattern; kept LIFO for `ra-common` compatibility. The `CoreClient` `Msg.slip` is
+  front-to-back and `EmbeddedCoreClient` reverses it into the stack.
+- **`ManConStatus.select()` always returns `NONE`.** `maxAvailable` starts at
+  `ManCon.NONE` (ordinal 6) and is never driven from transport readiness, so every
+  request clamps up. The VERYHIGH/EXTREME/NEO delay+copy bands are dead until the
+  router probes `maxAvailable`. Fixed as part of Stage 1a.
 - **`BaseRoute.fromMap` typo** — checks `"routedId"`, so `routeId` is never restored
-  from JSON. External fix in `ra-common-java`.
+  from JSON. Scheduled in `ra-common-java 1.3.2`; Stage 1a slip-round-trip tests
+  depend on it.
+- **No `ServiceLevel` is set on any channel.** `IdentityService` (a `DataService`)
+  and every other service run on a non-durable `AtMostOnce` channel; a crash mid
+  routing-slip loses the envelope. `DataService` channels should register at
+  `AtLeastOnce`/`ExactlyOnce` (see the taxonomy section) — not yet wired.
 - **`DynamicRoutingSlip` / `DequeStack` are not thread-safe** — fine; SEDA guarantees
   a single owner per stage.
 - **Route JSON round-trip** needs a public no-arg constructor on every `Route` impl
@@ -402,7 +603,11 @@ dead-letter: `~/.ra/ra.servicebus.ServiceBus/deadLetter.json`.
   the route made configurable. `ServiceBus`'s own `ServiceStatusListener` path does
   not need it.
 - **Envelopes can arrive at a service mid-startup** — the bus consumer is attached at
-  registration, before `start()` runs. Services must tolerate early envelopes (or a
-  readiness gate lands in `service-bus`, see its TODO).
-- **secp256k1 availability** varies by JDK build; the skeleton `IdentityService`
-  falls back to a placeholder id. Real BIP-340 needs a bundled secp256k1 lib.
+  registration, before `start()` runs. `ServiceBus.registerService` also starts
+  services on an `AppThread`, so registration order does not guarantee start order.
+  Services must tolerate early envelopes (or a readiness gate lands in
+  `service-bus`, see its TODO).
+- **secp256k1 is now a hard dependency**, not JDK-provided: `did-java` brings ACINQ
+  `secp256k1-kmp` (JNI). The old JCA-or-placeholder fallback is gone. An Android
+  host swaps the JNI artifact for `secp256k1-kmp-jni-android` (see the dependency
+  notes in `1m5-android/DESIGN.md`).
