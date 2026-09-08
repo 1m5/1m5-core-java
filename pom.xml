@@ -60,6 +60,37 @@
 		</dependency>
 
 		<!--
+		  Pin ra-common to 1.3.0 (service-bus/seda-bus/i2p ask for 1.2.0 transitively).
+		  1.3.0 fixes Signature persistence and drops the unused Reputation stub;
+		  nothing in the stack references Reputation. did-java below is built against it.
+		-->
+		<dependency>
+			<groupId>resolvingarchitecture</groupId>
+			<artifactId>common</artifactId>
+			<version>1.3.0</version>
+		</dependency>
+
+		<!--
+		  DID / identity. IdentityService derives the node's secp256k1 / BIP-340
+		  identity through did-java's ra.did.nostr (NostrKeyRing over ACINQ
+		  secp256k1-kmp) and seals the secret at rest with EncryptedSecret. Also
+		  carries the legacy OpenPGP keyring (ra.did.openpgp) for read-only
+		  verification of old contacts and migration proofs. usb4java (YubiKey) is
+		  excluded - the node has no use for it.
+		-->
+		<dependency>
+			<groupId>resolvingarchitecture</groupId>
+			<artifactId>did</artifactId>
+			<version>1.3.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.usb4java</groupId>
+					<artifactId>usb4java-javax</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<!--
 		  I2P protocol service. Wrapped by network.onemfive.core.protocol.I2PProtocolService
 		  and registered by the Daemon only when 1m5.i2p.enabled=true (an embedded I2P
 		  router reseeds on first start and takes minutes). Brings net.i2p:i2p / router /
