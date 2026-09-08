@@ -34,4 +34,33 @@ Rewrite of the former `onemfive:platform` scaffold into the reusable 1M5 core.
 - `CoreSmokeTest`, `RoutingServiceTest`, `ProtocolIntegrationTest` — green.
 - Removed the legacy `onemfive` package, `RELEASE-NOTES.md`, `BUILD.md`, `ops/`.
 
-See `TODO.md` for what is deliberately not yet implemented.
+### Escalation router (P1)
+
+- `RoutingService` rewritten around a pure decision engine, `EscalationRouter`:
+  ManCon &times; (web | P2P) network selection (`ManConNetworks`), address-matched
+  transport choice, cross-transport relay (`RelayedExternalRoute`), and hold +
+  backoff retry (`RetryStrategy`, ported from Remnant's `RouterService`; the
+  `RetryScheduler` seam keeps it unit-testable) with dead-letter once the retry
+  window is exhausted.
+- `ManConStatus.select()` fixed: `maxAvailable` is now driven from ready
+  transports (`RoutingService.refreshAvailability()` &rarr; `ManConNetworks
+  .maxAvailableFor`), firing `ManConStatusListener`s on change. It previously
+  stayed at `NONE` and every `select()` collapsed to `NONE`. Added
+  `meetsFloor(...)` so the router holds rather than downgrades when the connected
+  transports cannot meet the operator's floor.
+- `PeerDirectory` enriched: `fingerprint -> network -> address` plus relay-capable
+  peers, for address-matched selection and relay lookup. (The
+  `ra.networkmanager` peer DB with reliability scoring is still the follow-up.)
+- `SituationalAwareness` carries the full decision trail (band, acceptable
+  networks, ready networks, decision, chosen/relay network, attempt, reason) and
+  is logged for every envelope.
+- Depends on `ra-common 1.3.2` (`BaseRoute.fromMap` `routedId` typo fixed, so
+  `routeId` survives slip JSON round-trip).
+- Tests: `EscalationRouterTest` (12), `ManConStatusTest` (5),
+  `RoutingServiceEscalationTest` (4) - 28 green total.
+
+Still not implemented: the ManCon-driven random-delay ratchet beyond the
+VERYHIGH/EXTREME/NEO parameter bands, NEO mnemonic-only keys, live-network relay
+testing, and the `ra.networkmanager` peer store.
+
+See `TODO.md` for the rest.

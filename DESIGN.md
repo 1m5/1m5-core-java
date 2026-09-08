@@ -22,10 +22,11 @@ architecture — the layers, the `CoreClient` contract, the router target, the
 per-language plan). A second implementation, `1m5-core-rust`, mirrors this one as a
 thinner skeleton for small-footprint / Redox hosts.
 
-Some of this is implemented (the bus stack, the service taxonomy, the router seam,
-a `did-java`-backed `IdentityService` sealed at rest); the rest is staged in
-[`TODO.md`](TODO.md) and called out below as such. In particular the **escalation
-router is not built** — `RoutingService` currently picks the first ready transport.
+Most of this is implemented (the bus stack, the service taxonomy, the router seam,
+a `did-java`-backed `IdentityService` sealed at rest, and the **escalation router**
+— ManCon × (web | P2P) network selection, address-matched transport choice,
+cross-transport relay, hold + backoff retry); the rest is staged in
+[`TODO.md`](TODO.md) and called out below as such.
 
 ## Goals and constraints
 
@@ -255,58 +256,64 @@ For each envelope it builds a `SituationalAwareness` snapshot from:
   view over `serviceBus.findRunningServices(ProtocolService.class)`);
 - (later) peer reachability from the peer directory.
 
-It then **pushes one transport hop** onto the slip
-(`envelope.addExternalRoute(protocolServiceClass, "SEND")`), sets ManCon-derived
-delivery parameters (`setDelayed`/`setMinDelay`/`setMaxDelay`,
-`setCopy`/`setMinCopies`/`setMaxCopies`), and returns. It does **not** ratchet — the
-engine does. If nothing can carry the envelope it records an error (hold/retry is
-staged).
+It then calls the pure decision engine and **pushes one transport hop** onto the
+slip, sets ManCon-derived delivery parameters
+(`setDelayed`/`setMinDelay`/`setMaxDelay`, `setCopy`/`setMinCopies`/`setMaxCopies`),
+and returns. It does **not** ratchet — the engine does. If nothing can carry the
+envelope it **holds** it and schedules a retry.
 
-Route selection must be **explainable** — the `SituationalAwareness` snapshot exists
-so every decision (only route available, lowest latency, best privacy, user
-preference, fallback after failure) can be logged.
+Route selection is **explainable** — the `SituationalAwareness` snapshot (band,
+acceptable networks, ready networks, decision, chosen/relay network, attempt,
+reason) is logged for every envelope.
 
-### Skeleton vs. target
+### The escalation engine (`EscalationRouter`)
 
-The skeleton `choose()` is ~15 lines: it returns the first `ProtocolService` that
-reports ready (honouring a protocol already named on the slip by FQCN). There is no
-ManCon-driven network *choice*, no relay, no adapt-on-failure — on `chosen == null`
-it records an error and returns; the slip completes "successfully" with **no hold,
-no retry, no dead-letter**. `PeerDirectory` is dead code.
+`RoutingService` is thin bus glue over a **pure decision function**,
+`EscalationRouter.decide(...)` — no bus, no threads, so every branch is unit
+tested (`EscalationRouterTest`, 12 cases). The ladder, ported from
+`onemfive.routing.CRNetworkManagerService` and Remnant's `RouterService.Sender`:
 
-**Two concrete defects sit under the current router and must be fixed first
-(Stage 1a):**
+1. **Clamp** the requested ManCon into the achievable band
+   (`ManConStatus.select`). `RoutingService.refreshAvailability()` drives
+   `maxAvailable` from the ready transports via `ManConNetworks.maxAvailableFor`
+   (non-internet → NEO, I2P → VERYHIGH, Tor → HIGH, clearnet → LOW, nothing →
+   NONE) and fires `ManConStatusListener`s on a change.
+2. If the clamp cannot meet the operator's floor (`!meetsFloor`) → **HOLD** (wait
+   for a better transport, never downgrade sensitive traffic).
+3. **Acceptable networks** for the level (`ManConNetworks.acceptable`), most
+   preferred first: LOW/MEDIUM → I2P/Tor by address; HIGH → I2P→Tor→non-internet;
+   VERYHIGH → I2P only (Tor dropped) → non-internet; EXTREME/NEO → non-internet
+   only. Web requests get the clearnet/overlay ordering.
+4. **Direct**: the first acceptable network that is ready *and* that the
+   destination has an address on (`PeerDirectory`). `localhost` URLs and
+   undirected traffic take the first ready acceptable network.
+5. **Relay**: the destination has an address on an acceptable-but-blocked
+   network, and a relay peer is reachable on an acceptable one that *is* ready →
+   push a `RelayedExternalRoute` (`fromPeer` = relay, `toPeer` = destination).
+   Web requests relay through any peer on a ready acceptable network.
+6. Nothing → **HOLD**.
 
-1. **`ManConStatus.select()` always returns `NONE`.** `maxAvailable` is
-   initialised to `ManCon.NONE` (ordinal 6) and never driven from transport
-   readiness, so every request clamps up to `NONE`. The VERYHIGH / EXTREME / NEO
-   delay-and-copy bands are therefore dead code. Fix: probe `maxAvailable` from
-   timestamped per-level connectivity tests and fire `ManConStatusListener`s on
-   change.
-2. **`ra.common.route.BaseRoute.fromMap` reads the key `"routedId"`** (a typo for
-   `"routeId"`), so `routeId` is lost on every JSON round-trip. Fix ships in
-   `ra-common-java 1.3.2` (see [`TODO.md`](TODO.md)); Stage 1a depends on it for
-   slip-round-trip tests.
+**Hold + retry.** Held envelopes go into a map keyed by envelope id;
+`RetryStrategy` (ported from Remnant: 20 s, constant for 20 min, ×2 backoff, 1 h
+cap, 24 h give-up) schedules the next attempt through the `RetryScheduler` seam
+(`ScheduledThreadPoolExecutor` in production, a manual driver in tests). The retry
+re-submits the same envelope fire-and-forget; once the give-up window passes the
+envelope is **dead-lettered** (error recorded, dropped from the hold queue).
 
-**Delivery order for the router itself:**
+**The two stack defects this depended on are fixed:** `ManConStatus.select()` no
+longer collapses to `NONE` (see above), and `ra-common-java 1.3.2` fixed
+`BaseRoute.fromMap`'s `"routedId"` typo so `routeId` survives slip JSON
+round-trip.
 
-- **Stage 1b — parity with Remnant's `RouterService.Sender`.** Today's Remnant
-  router is *more capable* than this skeleton: address-matched transport selection,
-  cross-transport relay fallback ("blocked on Tor → reach the peer over I2P"), and
-  `RetryStrategy` backoff (20 s → 1 h, max 5 tries / 24 h). Bringing
-  `RoutingService` to Sender-parity — address-matched selection, relay fallback,
-  hold-queue + SEDA retry + envelope delay parameters — is a **hard prerequisite**
-  of any Android cutover; a naive swap before it is a routing regression.
-- **Later — the full `CRNetworkManagerService` ladder.** Port the remaining
-  escalation logic from `onemfive.routing.CRNetworkManagerService`:
-  - ManCon × (web request | P2P) decision matrix;
-  - the Tor ↔ I2P ↔ Bluetooth ↔ WiFi ↔ satellite/radio escalation ladder and
-    `RelayedExternalRoute` hops;
-  - random delays that ratchet up with ManCon;
-  - NEO: multiple encrypted copies, delays up to months, mnemonic-only key.
+**Still not built** (see [`TODO.md`](TODO.md)): the random-delay *ratchet* beyond
+the fixed VERYHIGH/EXTREME/NEO parameter bands, NEO mnemonic-only keys,
+timestamped per-*level* connectivity probing (the current `maxAvailable` is a
+transport-class heuristic), the reliability-scored `ra.networkmanager` peer
+store, inbound dedupe, and live two-node relay testing.
 
-The mission-level statement of this target is in
-`1m5-docs/architecture/README.md` §"The router — target design".
+The mission-level statement of this design is in
+`1m5-docs/architecture/README.md` §"The router — target design"; `1m5-core-rust`
+mirrors this engine (`escalation::decide`).
 
 ---
 
@@ -583,13 +590,13 @@ dead-letter: `~/.ra/ra.servicebus.ServiceBus/deadLetter.json`.
 - **Slip is LIFO.** `Envelope.addRoute` pushes. Use the one-hop-at-a-time router
   pattern; kept LIFO for `ra-common` compatibility. The `CoreClient` `Msg.slip` is
   front-to-back and `EmbeddedCoreClient` reverses it into the stack.
-- **`ManConStatus.select()` always returns `NONE`.** `maxAvailable` starts at
-  `ManCon.NONE` (ordinal 6) and is never driven from transport readiness, so every
-  request clamps up. The VERYHIGH/EXTREME/NEO delay+copy bands are dead until the
-  router probes `maxAvailable`. Fixed as part of Stage 1a.
-- **`BaseRoute.fromMap` typo** — checks `"routedId"`, so `routeId` is never restored
-  from JSON. Scheduled in `ra-common-java 1.3.2`; Stage 1a slip-round-trip tests
-  depend on it.
+- **~~`ManConStatus.select()` always returns `NONE`~~ — fixed.** `maxAvailable` is
+  now driven from ready transports (`RoutingService.refreshAvailability()` →
+  `ManConNetworks.maxAvailableFor`), listeners fire on change, and `meetsFloor()`
+  lets the router hold rather than downgrade. (The probe is a transport-class
+  heuristic, not yet timestamped per-level tests.)
+- **~~`BaseRoute.fromMap` `"routedId"` typo~~ — fixed** in `ra-common-java 1.3.2`
+  (also `TextMessage.toMap`/`fromMap`); this repo pins `common:1.3.2`.
 - **No `ServiceLevel` is set on any channel.** `IdentityService` (a `DataService`)
   and every other service run on a non-durable `AtMostOnce` channel; a crash mid
   routing-slip loses the envelope. `DataService` channels should register at

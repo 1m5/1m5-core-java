@@ -8,7 +8,11 @@ import ra.common.network.NetworkStatus;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-/** Test transport adapter: comes up CONNECTED and records what it is asked to send. */
+/**
+ * Test transport adapter: comes up CONNECTED and records what it is asked to send.
+ * Reports {@link Network#I2P} (an internet overlay that satisfies the default
+ * {@code ManCon.HIGH} floor), like a real P2P transport would.
+ */
 public class MockProtocolService extends ProtocolService {
 
     public static final ConcurrentLinkedQueue<String> SENT = new ConcurrentLinkedQueue<>();
@@ -26,7 +30,7 @@ public class MockProtocolService extends ProtocolService {
 
     @Override
     public Network getNetwork() {
-        return Network.HTTP;
+        return Network.I2P;
     }
 
     @Override

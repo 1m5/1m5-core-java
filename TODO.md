@@ -40,63 +40,53 @@ roadmap.
 
 ## P1 — Router
 
-### Stage 1a — skeleton hardening + full test suite + the 2 stack defects
+### Stage 1a — skeleton hardening + the 2 stack defects
 
-- [ ] Fix **`ManConStatus.select()` always returns `NONE`**: drive `maxAvailable`
-      from timestamped per-level connectivity probes; fire `ManConStatusListener`s
-      on change. Until then the VERYHIGH/EXTREME/NEO bands are dead code.
-- [ ] Depend on the `ra-common-java 1.3.2` fix for `BaseRoute.fromMap` `"routedId"`
-      (see External library follow-up).
+- [x] Fix **`ManConStatus.select()` always returns `NONE`**: `maxAvailable` is
+      driven from ready transports (`RoutingService.refreshAvailability()` →
+      `ManConNetworks.maxAvailableFor`), `ManConStatusListener`s fire on change,
+      and `meetsFloor(...)` lets the router hold rather than downgrade.
+- [x] Depend on `ra-common-java 1.3.2` (`BaseRoute.fromMap` `routedId` typo +
+      `TextMessage` toMap/fromMap).
 - [ ] Set `ServiceLevel` on `DataService` channels (`AtLeastOnce`/`ExactlyOnce`) so
       a crash mid routing-slip does not silently drop the envelope.
 - [ ] Tolerate envelopes arriving mid-startup (or consume the `service-bus`
       readiness gate once it lands).
-- [ ] **Full verification test suite** — the gate for "verified as designed":
-  - [ ] `BusSlipTest` — single- and multi-hop routing-slip walk, producer callback
-        fires once at slip end, LIFO order.
-  - [ ] `SlipJsonRoundTripTest` — `Envelope` + every `Route` impl survive
-        `toMap`/`fromMap` (incl. `routeId`, post-1.3.2).
-  - [ ] `ServiceTaxonomyTest` — `Business`/`Data`/`Protocol` registration, status,
-        `ServiceType`.
-  - [ ] `ProtocolDiscoveryTest` — `findRunningServices(ProtocolService.class)`,
-        ready/not-ready filtering, `channelName()` aliasing.
-  - [ ] `ProtocolSeamTest` — `NetworkServiceProtocol` lifecycle + status + `sendOut`
-        with a mock `NetworkService` (extends today's `ProtocolIntegrationTest`).
-  - [ ] `ManConBandsTest` — `fromSensitivity`, `select()` clamping across the full
-        band, listener fires, delay/copy parameters applied per level.
-  - [ ] `IdentityOverBusTest` — `GET_NODE_IDENTITY` returns public summary only;
-        secret never on the bus; sealed/plaintext/upgrade/wrong-pass paths.
-  - [ ] `DaemonLifecycleTest` — start → awaitRunning → stop; `Core.reset()`;
-        directory prep; `1m5.pass` config-vs-env warning.
-  - [ ] `CoreClientContractTest` (abstract) run against `EmbeddedCoreClient`.
+- [x] Router tests: `EscalationRouterTest` (12), `ManConStatusTest` (5),
+      `RoutingServiceEscalationTest` (4). Full core suite 28 green.
+- [ ] Remaining verification tests: `SlipJsonRoundTripTest` (`routeId` post-1.3.2),
+      `ServiceTaxonomyTest`, `IdentityOverBusTest` (sealed/plaintext/upgrade/
+      wrong-pass), `DaemonLifecycleTest`, `CoreClientContractTest`.
 
-### Stage 1b — `Sender`-parity router
+### Stage 1b — `Sender`-parity router — DONE
 
-Bring `RoutingService` to parity with `1m5-android`'s `RouterService.Sender`
-(the hard prerequisite for any Android cutover):
+`RoutingService` rewritten around the pure `EscalationRouter` decision engine:
 
-- [ ] Address-matched transport selection: choose the transport for which the peer
-      has an address **and** which is currently connected.
-- [ ] Cross-transport relay fallback ("blocked on Tor → reach the peer over I2P");
-      `RelayedExternalRoute` hops with origination/destination peers.
-- [ ] Message hold-queue + retry when no path exists, replacing error-and-drop:
-      map onto SEDA retry + envelope delay parameters + bus dead-letter.
-- [ ] Inbound dedupe.
+- [x] ManCon × (web | P2P) decision matrix (`ManConNetworks.acceptable`).
+- [x] Address-matched transport selection: send over the transport the peer has
+      an address on *and* that is currently ready (`PeerDirectory`).
+- [x] Cross-transport relay fallback (peer on a blocked acceptable network + a
+      relay peer on a ready one) → `RelayedExternalRoute` hop.
+- [x] Message hold-queue + `RetryStrategy` backoff (20s → 1h, 24h give-up;
+      `RetryScheduler` seam for tests) → dead-letter when exhausted.
+- [ ] Inbound dedupe (belongs on the inbound pipeline; not the escalation path).
 - [ ] Real peer store: add `resolvingarchitecture:network-manager`, back
       `PeerDirectory` with `ra.networkmanager.InMemoryPeerDB` / `P2PRelationship`
       (ack latency, reliability scoring, relationship graph).
-- [ ] Router scenario tests: per blocked-network case, relay selection, backoff,
-      hold-and-resume.
+- [ ] Live two-node relay testing over real I2P / Tor.
 
 ### Later — full `CRNetworkManagerService` ladder
 
-- [ ] ManCon × (web request | P2P) decision matrix.
-- [ ] Network selection by ManCon (LOW/MEDIUM → Tor/I2P by address; HIGH → I2P→Tor;
-      VERYHIGH → I2P + random delays; EXTREME/NEO → non-internet relay).
-- [ ] The Bluetooth/WiFi/Satellite/FSRadio/LiFi escalation ladder.
-- [ ] Random delays that ratchet with ManCon; NEO multi-copy, long-delay,
-      mnemonic-only key.
-- [ ] Router unit tests per ManCon level.
+- [x] Network selection by ManCon: LOW/MEDIUM → I2P/Tor by address; HIGH →
+      I2P→Tor; VERYHIGH → I2P only (Tor dropped); EXTREME/NEO → non-internet.
+- [x] The Bluetooth/WiFi/Satellite/FSRadio/LiFi tail of the acceptable-network
+      ladder (relay reaches them).
+- [x] `maxAvailable` reflects the ladder (non-internet→NEO, I2P→VERYHIGH,
+      Tor→HIGH, clearnet→LOW).
+- [ ] Random delays that *ratchet* with ManCon beyond the current fixed
+      VERYHIGH/EXTREME/NEO parameter bands; NEO long-delay + mnemonic-only key.
+- [ ] Per-*level* connectivity probing (the current `maxAvailable` is a
+      transport-class heuristic, not timestamped per-level tests).
 
 ---
 
@@ -229,9 +219,11 @@ shape must stay identical across those and `1m5-android/DESIGN.md`).
 - [x] `seda-bus-java` → `1.3.1` (compile target Java 17 → 11).
 - [x] `service-bus-java` → `1.5.0`: Class-based API + discovery + `awaitRunning` +
       pause/restart + per-service status + reusable `Daemon`.
-- [ ] **`ra-common-java 1.3.2`** (scheduled — Stage 1a depends on it):
-  - [ ] fix `BaseRoute.fromMap` `"routedId"` → `"routeId"`;
-  - [ ] `TextMessage.toMap` / `fromMap` do not serialize their fields.
+- [x] **`ra-common-java 1.3.2`** — released, `mvn install`ed, pinned here:
+  - [x] `BaseRoute.fromMap` `"routedId"` → `"routeId"` (routeId now survives
+        slip JSON round-trip);
+  - [x] `TextMessage.toMap` / `fromMap` serialize `to` / `from` / `text`;
+  - [x] `RouteRoundTripTest` added (3 cases); full ra-common suite 6 green.
 
 ## Later
 

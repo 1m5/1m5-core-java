@@ -31,19 +31,51 @@ public final class ManConStatus {
     public void setMinRequired(ManCon m) { this.minRequired = m; }
 
     public ManCon getMaxAvailable() { return maxAvailable; }
-    public void setMaxAvailable(ManCon m) { this.maxAvailable = m; }
+
+    /**
+     * Set the most severe ManCon the connected transports can currently deliver.
+     * Returns true if the value changed - the router fires
+     * {@link ManConStatusListener}s on a true return.
+     *
+     * <p>This is what the router keeps current (from
+     * {@code RoutingService.refreshAvailability()}); before that wiring it stayed
+     * at {@link ManCon#NONE} and {@link #select} collapsed every request to NONE.
+     */
+    public boolean setMaxAvailable(ManCon m) {
+        if (m == null || m == maxAvailable) return false;
+        this.maxAvailable = m;
+        return true;
+    }
 
     public ManCon getMaxSupported() { return maxSupported; }
     public void setMaxSupported(ManCon m) { this.maxSupported = m; }
 
     /**
-     * Clamp a requested ManCon into the [maxAvailable, minRequired] band.
-     * (Ordinals run most-severe-first, so "more severe than maxAvailable" means a
-     * smaller ordinal than maxAvailable.)
+     * Clamp a requested ManCon into the achievable band. Ordinals run
+     * most-severe-first (NEO = 0), so:
+     * <ul>
+     *   <li>the result is never <em>less</em> severe than {@link #minRequired}
+     *       (the floor the operator set) - a low-sensitivity request is raised;</li>
+     *   <li>the result is never <em>more</em> severe than {@link #maxAvailable}
+     *       (what the transports can deliver) - an over-ambitious request is
+     *       clamped down.</li>
+     * </ul>
+     * When {@code maxAvailable} is itself less severe than {@code minRequired}
+     * (the transports cannot even meet the floor) the band is inverted and this
+     * returns {@code maxAvailable}; callers detect that with
+     * {@link #meetsFloor(ManCon)} and hold the envelope rather than downgrade it.
      */
     public ManCon select(ManCon requested) {
-        if (requested.ordinal() < maxAvailable.ordinal()) return maxAvailable;
-        if (requested.ordinal() > minRequired.ordinal()) return minRequired;
-        return requested;
+        int floor = minRequired.ordinal();      // least severe acceptable (larger ordinal)
+        int ceil = maxAvailable.ordinal();      // most severe achievable   (smaller ordinal)
+        int r = requested.ordinal();
+        if (r > floor) r = floor;
+        if (r < ceil) r = ceil;
+        return ManCon.fromOrdinal(r);
+    }
+
+    /** True if {@code level} is at least as severe as the operator's floor. */
+    public boolean meetsFloor(ManCon level) {
+        return level.ordinal() <= minRequired.ordinal();
     }
 }
