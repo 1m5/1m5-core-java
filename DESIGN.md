@@ -458,9 +458,10 @@ it over `Core.get()`. The mission-level statement is
 `1m5-docs/architecture/README.md` §"The 1M5 Core contract"; it must read
 identically there, here, and in `1m5-android/DESIGN.md`.
 
-The same `Msg` shape is the out-of-process wire form too — the ADR-0003 node RPC
-API's envelope, and (usefully but not by design) the flat `Envelope` the Rust
-core (`1m5-core-rust`, for `1m505`) already uses.
+The same `Msg` shape is the out-of-process wire form too — the envelope of the
+localhost RPC API that `1m5-desktop-java` speaks (ADR-0003), and (usefully but
+not by design) the flat `Envelope` the Rust core (`1m5-core-rust`, for `1m505`)
+already uses.
 
 **Verbs — `CoreClient` (~8):**
 

@@ -149,7 +149,7 @@ shape must stay identical across those and `1m5-android/DESIGN.md`).
 
 ---
 
-## P3 — Default protocol services & the node RPC API
+## P3 — Default protocol services & the desktop RPC API
 
 - [x] `NetworkServiceProtocol` — adapter bridging any `ra.common.network.NetworkService`
       to `ProtocolService` (lifecycle + status + `sendOut`).
@@ -162,13 +162,14 @@ shape must stay identical across those and `1m5-android/DESIGN.md`).
 - [~] `TorProtocolService` — `NetworkServiceProtocol` around `ra.tor.TORClientService`
       (`tor-client-java` 1.2.1). Wired + `Daemon` registers it behind
       `1m5.tor.enabled=true`. Not run against a live Tor daemon. Tor is local-only.
-- [ ] `HTTPProtocolService` — `resolvingarchitecture:http-client`; also hosts the
-      **localhost node RPC API**. Per `ADR-0003-node-client-split-and-rpc-api.md`
-      this is a protobuf `Envelope` + service schema with gRPC framing (Connect for
-      browser clients), not the old plain Envelope-JSON HTTP handler. The `.proto`
-      is the durable artifact — define it (in `1m5-proto` or `1m5-docs/proto/`)
-      first, code-generate per node and client.
-- [ ] Mirror the RPC API in `1m5-core-rust` (Redox forces lockstep).
+- [ ] `HTTPProtocolService` — `resolvingarchitecture:http-client`.
+- [ ] The **localhost RPC API for `1m5-desktop-java`** (ADR-0003): a handler that
+      speaks the `Msg` JSON encoding (unary calls + an inbound stream), bound to
+      `127.0.0.1` with a token; `HttpCoreClient` in the `CoreClient` package is
+      the desktop-side implementation; `CoreClientContractTest` runs against it.
+      Dependency-light JSON/HTTP + WebSocket — no protobuf/gRPC (one consumer,
+      same language). `1m5-core-rust` does **not** need this — `1m505` embeds the
+      core in-process.
 - [ ] `BluetoothProtocolService` — `resolvingarchitecture:bluetooth-client`.
 - [ ] `NotificationService` registered (status/event pub-sub; `BaseService.updateStatus`
       routes there).
@@ -181,8 +182,9 @@ shape must stay identical across those and `1m5-android/DESIGN.md`).
 ## Deferred — separate efforts, not this repo (tracked for visibility)
 
 - [ ] **Desktop**: point `1m5-desktop-java`'s pom at `network.onemfive:1m5-core`
-      (or `1m5-common` + the RPC client); verify `DesktopClient`'s `ControlCommand`
-      / `addRoute` envelope shapes against the RPC API.
+      (or `1m5-common`) for the `CoreClient` interface + `Msg`; swap its bespoke
+      `DesktopClient` HTTP calls for `HttpCoreClient` against the localhost RPC
+      API (ADR-0003).
 - [ ] **Android host**: authoritative plan in `1m5-android/DESIGN.md` §"1M5 Core
       Integration" and `1m5-android/TODO.md` §"1M5 Core Integration". `:core-host`
       module; `I2PProtocolAdapter` / `TorProtocolAdapter` wrapping Remnant's
@@ -200,8 +202,8 @@ shape must stay identical across those and `1m5-android/DESIGN.md`).
       a future Android host.
 - [ ] `1m5-core` depends on `1m5-common`; re-export nothing desktop-specific.
 - [ ] (separate effort, deferred) point `1m5-desktop-java` at `1m5-common` +
-      `ra-common` instead of the full core jar. ADR-0003 notes `1m5-client-java`
-      is essentially this extraction generalised.
+      `ra-common` for the models it compiles against; it reaches a running core
+      through `HttpCoreClient` (ADR-0003), not by embedding this jar.
 
 ## Dependency distribution — build-locally-and-pull-in
 
