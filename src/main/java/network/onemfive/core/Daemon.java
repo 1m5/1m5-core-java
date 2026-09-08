@@ -54,8 +54,12 @@ public final class Daemon extends ra.servicebus.Daemon {
 
         prepareDirectories(config);
 
-        if (System.getenv("1m5.pass") == null || System.getenv("1m5.pass").isEmpty()) {
-            LOG.warning("env var 1m5.pass not set - identity keys will not be encrypted at rest (skeleton).");
+        // IdentityService resolves the passphrase from the config first, then the
+        // environment; warn only when neither has it.
+        String pass = config.getProperty("1m5.pass");
+        if (pass == null || pass.isEmpty()) pass = System.getenv("1m5.pass");
+        if (pass == null || pass.isEmpty()) {
+            LOG.warning("1m5.pass not set (config or env) - the node identity secret will be stored unencrypted.");
         }
     }
 
