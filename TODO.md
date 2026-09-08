@@ -87,6 +87,12 @@ roadmap.
       VERYHIGH/EXTREME/NEO parameter bands; NEO long-delay + mnemonic-only key.
 - [ ] Per-*level* connectivity probing (the current `maxAvailable` is a
       transport-class heuristic, not timestamped per-level tests).
+- [ ] **Jurisdiction default for `minRequired`**: copy
+      `1m5-docs/jurisdictions-levels.txt` in as a resource; add
+      `ManConStatus.defaultFor(String iso2)` (parse the file, `*` = fallback);
+      the `Daemon` / host sets `minRequired` from it. User→jurisdiction lookup is
+      the host's job. Test against a few known rows (NO→LOW, GB→MEDIUM, US→HIGH,
+      CN→EXTREME, unknown→HIGH).
 
 ---
 

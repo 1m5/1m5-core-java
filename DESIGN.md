@@ -326,13 +326,19 @@ mirrors this engine (`escalation::decide`).
   sensitivity to a level; `HIGH` is the 1M5 default for P2P.
 - **`ManConStatus`** — an **instance** (owned by `Core`), not global mutable statics
   as in the legacy code. Holds min required / max available / max supported and a
-  `select(requested)` that clamps a request into the achievable band.
+  `select(requested)` that clamps a request into the achievable band. **`min
+  required`** (the floor) is seeded from the user's jurisdiction via
+  `1m5-docs/jurisdictions-levels.txt` (RSF World Press Freedom Index band →
+  ManCon: Good→LOW, Satisfactory→MEDIUM, Problematic→HIGH, Difficult→VERYHIGH,
+  Very serious→EXTREME; `*`→HIGH fallback). Copy that file in as a resource; add
+  `ManConStatus.defaultFor(String iso2)` reading it. The user→jurisdiction lookup
+  (GeoIP / SIM MCC / locale / user setting) is a host concern, and the default is
+  always user-overridable.
 - **`ManConStatusListener`** (`extends Runnable`) — hosts register to refresh what
   they show the user when the band changes.
 - **`SituationalAwareness`** — the per-envelope decision snapshot.
 
-ManCon levels correspond to jurisdictions on the Press Freedom Index; recommended
-levels and the full narrative live in `1m5-docs`.
+The full ManCon ↔ Press Freedom Index narrative lives in `1m5-docs`.
 
 ---
 
