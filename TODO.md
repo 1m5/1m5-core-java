@@ -242,6 +242,19 @@ follow-up in `1m5-remnant/DESIGN.md` §"Impact on 1m5-android").
       constants stay identical to `RoutingService`'s own (duplicated
       deliberately, not shared - sharing would require the one import this
       avoids). 41/41 green.
+- [x] **`ProtocolHandle.localAddress()`** / **`TransportStatus.getLocalAddress()`**:
+      found needed for `1m5-remnant`'s "My Card" screen, which has to publish
+      this device's own I2P/Tor/BT address for a contact to import - and
+      nothing surfaced it. `ProtocolHandle.localAddress()` (default null, so no
+      existing implementation breaks) is the host's own address on that
+      transport; `ProtocolService.getLocalAddress()` (also default null)
+      carries it through, `HandleBackedProtocolService` overrides it to
+      delegate to the handle, and `TransportStatus` gained a fourth
+      constructor param + getter (old 3-arg constructor kept, delegating with
+      null, so every existing call site is untouched).
+      `EmbeddedCoreClientTest.readyTransportsSurfacesTheHostsOwnLocalAddress`
+      proves it round-trips through `registerProtocol` → `readyTransports()`.
+      42/42 green.
 - [ ] `CoreClientContractTest` (abstract) — runs against `EmbeddedCoreClient` now,
       `HttpCoreClient` when the ADR-0003 RPC API lands. Not built yet;
       `EmbeddedCoreClientTest` is a concrete, non-abstract stand-in until there is a

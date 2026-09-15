@@ -54,6 +54,16 @@ public abstract class ProtocolService extends CoreService implements Transport {
         this.networkStatus = status;
     }
 
+    /**
+     * This device's own address on this transport, or null if it has none to
+     * give yet (or never will - e.g. plain HTTP). Default null; {@code
+     * HandleBackedProtocolService} overrides it to delegate to the host's
+     * {@code ProtocolHandle.localAddress()}.
+     */
+    public String getLocalAddress() {
+        return null;
+    }
+
     @Override
     public void handleDocument(Envelope envelope) {
         dispatch(envelope);

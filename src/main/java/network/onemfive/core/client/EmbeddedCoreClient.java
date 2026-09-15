@@ -108,7 +108,7 @@ public final class EmbeddedCoreClient implements CoreClient {
     public List<TransportStatus> readyTransports() {
         List<TransportStatus> out = new ArrayList<>();
         for (ProtocolService p : Core.get().protocols()) {
-            out.add(new TransportStatus(p.channelName(), p.isReady(), p.getNetworkStatus().name()));
+            out.add(new TransportStatus(p.channelName(), p.isReady(), p.getNetworkStatus().name(), p.getLocalAddress()));
         }
         return out;
     }

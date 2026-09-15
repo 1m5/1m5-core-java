@@ -113,6 +113,11 @@ public final class HandleBackedProtocolService extends ProtocolService {
     }
 
     @Override
+    public String getLocalAddress() {
+        return handle.localAddress();
+    }
+
+    @Override
     public boolean send(Envelope envelope) {
         return handle.send(MsgTranslator.toMsg(envelope));
     }

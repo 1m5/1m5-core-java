@@ -25,4 +25,15 @@ public interface ProtocolHandle {
 
     /** Carry a {@link Msg} out over this transport. False if the send could not be attempted. */
     boolean send(Msg msg);
+
+    /**
+     * This device's own address on this transport (e.g. an I2P destination,
+     * base64) - what a contact needs to reach it, surfaced through {@link
+     * TransportStatus#getLocalAddress()}. Null until the transport has one to
+     * give (not yet connected, or a transport with no such concept, like plain
+     * HTTP). Default null so existing implementations don't break.
+     */
+    default String localAddress() {
+        return null;
+    }
 }

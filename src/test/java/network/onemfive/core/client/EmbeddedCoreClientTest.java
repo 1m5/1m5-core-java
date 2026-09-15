@@ -40,6 +40,7 @@ public class EmbeddedCoreClientTest {
         @Override public Network network() { return Network.I2P; }
         @Override public TransportStatus status() { return new TransportStatus("TEST", true, "CONNECTED"); }
         @Override public boolean send(Msg msg) { sent.add(msg); return true; }
+        @Override public String localAddress() { return "test-local.b32.i2p"; }
     }
 
     @Before
@@ -105,6 +106,23 @@ public class EmbeddedCoreClientTest {
             }
         }
         Assert.assertTrue("TEST channel should be reported ready", found);
+    }
+
+    /** What powers "My Card": the app's own address on a transport, surfaced without touching {@code ProtocolService}/{@code NetworkPeer} directly. */
+    @Test
+    public void readyTransportsSurfacesTheHostsOwnLocalAddress() {
+        TestProtocolHandle handle = new TestProtocolHandle();
+        client.registerProtocol(handle);
+        Assert.assertTrue(client.awaitReady(5_000, "TEST"));
+
+        boolean found = false;
+        for (TransportStatus s : client.readyTransports()) {
+            if ("TEST".equals(s.getName())) {
+                found = true;
+                Assert.assertEquals("test-local.b32.i2p", s.getLocalAddress());
+            }
+        }
+        Assert.assertTrue("TEST channel should be present", found);
     }
 
     @Test

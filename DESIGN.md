@@ -314,6 +314,19 @@ constants **in the `CoreClient` package itself** - so a host addresses
 own; they are duplicated, not shared, since sharing would mean the one import
 this exists to avoid.
 
+**A device's own address, for sharing with a contact.** `PeerDirectory` answers
+"where do I send to reach *them*"; nothing answered the mirror question, "what
+do I tell *them* to reach *me*" - needed for `1m5-remnant`'s "My Card" screen
+to have anything real to put in it. `ProtocolHandle.localAddress()` (default
+null) is the host's own address on that transport (an I2P destination, an
+onion address, ...); `ProtocolService.getLocalAddress()` carries it through the
+bus side (default null; `HandleBackedProtocolService` overrides it to delegate
+to the handle), and `TransportStatus` gained a fourth field,
+`getLocalAddress()`, so `CoreClient.readyTransports()` already returns it
+alongside ready state - no new verb. Every existing `TransportStatus`
+constructor call site and `ProtocolHandle` implementation is unaffected (both
+default to null).
+
 **Real finding, fixed alongside this:** `MsgTranslator.toEnvelope` computed
 `destPeerId`/`destI2p`/`destTor`/`destBt` from `Msg` headers but only ever used
 them to build an `ExternalRoute` for a *protocol*-channel hop - addressing
