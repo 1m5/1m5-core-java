@@ -89,6 +89,20 @@ public class EmbeddedCoreClientTest {
         Assert.assertTrue(Bip340.verify(sig, digest, NostrKeys.fromHex(pub)));
     }
 
+    /** The boundary-safe path a host actually uses (no did-java import) - mirrors the manual check above. */
+    @Test
+    public void verifyAcceptsARealSignatureAndRejectsTampering() {
+        byte[] canonical = "hello from CoreClient".getBytes(StandardCharsets.UTF_8);
+        byte[] sig = client.signAsNode(canonical);
+        String pub = client.identityStatus().getPublicKeyHex();
+
+        Assert.assertTrue(client.verify(sig, canonical, pub));
+        Assert.assertFalse("tampered content should not verify",
+                client.verify(sig, "hello from an attacker".getBytes(StandardCharsets.UTF_8), pub));
+        Assert.assertFalse("malformed key should not throw, just fail",
+                client.verify(sig, canonical, "not-a-real-pubkey"));
+    }
+
     @Test
     public void registeredProtocolIsDiscoveredAndReadyTransportsReportsIt() {
         TestProtocolHandle handle = new TestProtocolHandle();

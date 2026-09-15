@@ -10,11 +10,16 @@ import network.onemfive.core.routing.RoutingService;
 import network.onemfive.core.service.ProtocolService;
 import ra.common.Client;
 import ra.common.Envelope;
+import ra.did.nostr.Bip340;
+import ra.did.nostr.NostrKeys;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 /**
  * {@link CoreClient} over an in-process {@code Core.get()} - the embedding path
@@ -30,6 +35,8 @@ import java.util.Properties;
  * {@link #registerProtocol(ProtocolHandle)} instead.
  */
 public final class EmbeddedCoreClient implements CoreClient {
+
+    private static final Logger LOG = Logger.getLogger(EmbeddedCoreClient.class.getName());
 
     private volatile Properties config = new Properties();
 
@@ -126,6 +133,21 @@ public final class EmbeddedCoreClient implements CoreClient {
         IdentityService svc = Core.get().bus() == null ? null : Core.get().bus().getService(IdentityService.class);
         if (svc == null) throw new IllegalStateException("IdentityService not registered");
         return svc.signAsNode(canonicalEvent);
+    }
+
+    @Override
+    public boolean verify(byte[] signature, byte[] canonicalBytes, String publicKeyHex) {
+        if (signature == null || canonicalBytes == null || publicKeyHex == null) return false;
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonicalBytes);
+            return Bip340.verify(signature, digest, NostrKeys.fromHex(publicKeyHex));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        } catch (RuntimeException e) {
+            // malformed signature/key bytes from a peer are an ordinary outcome, not exceptional
+            LOG.fine("verify() rejected malformed input: " + e.getMessage());
+            return false;
+        }
     }
 
     private boolean flag(String key) {

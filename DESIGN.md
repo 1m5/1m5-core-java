@@ -327,6 +327,15 @@ alongside ready state - no new verb. Every existing `TransportStatus`
 constructor call site and `ProtocolHandle` implementation is unaffected (both
 default to null).
 
+**Verifying someone else's signature.** `signAsNode` signs with *this* node's
+key; a host also needs to check a signature *someone else* made (e.g. a
+messaging app confirming a message really came from the contact it claims to)
+without importing `did-java`'s `Bip340` directly. `verify(signature,
+canonicalBytes, publicKeyHex)` is the mirror image: SHA-256 the bytes, BIP-340
+verify against the given public key hex. Returns false rather than throwing on
+malformed input - a bad signature or key from a peer is an ordinary outcome to
+check for, not exceptional.
+
 **Real finding, fixed alongside this:** `MsgTranslator.toEnvelope` computed
 `destPeerId`/`destI2p`/`destTor`/`destBt` from `Msg` headers but only ever used
 them to build an `ExternalRoute` for a *protocol*-channel hop - addressing
@@ -518,7 +527,7 @@ localhost RPC API that `1m5-desktop-java` speaks (ADR-0003), and (usefully but
 not by design) the flat `Envelope` the Rust core (`1m5-core-rust`, for `1m505`)
 already uses.
 
-**Verbs — `CoreClient` (10):**
+**Verbs — `CoreClient` (11):**
 
 | Verb | Purpose |
 |---|---|
@@ -532,6 +541,7 @@ already uses.
 | `List<TransportStatus> readyTransports()` | which transports report ready |
 | `IdentityStatus identityStatus()` | node identity summary (public id only) |
 | `byte[] signAsNode(byte[] canonicalEvent)` | BIP-340 sign with the node key |
+| `boolean verify(byte[] signature, byte[] canonicalBytes, String publicKeyHex)` | verify someone else's BIP-340 signature - not tied to this node's own identity |
 
 **The flat envelope — `Msg`:**
 

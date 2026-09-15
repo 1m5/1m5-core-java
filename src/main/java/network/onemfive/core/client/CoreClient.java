@@ -60,4 +60,15 @@ public interface CoreClient {
 
     /** BIP-340 sign with the node key. Throws if the node has no usable secret. */
     byte[] signAsNode(byte[] canonicalEvent);
+
+    /**
+     * Verify a BIP-340 signature against the SHA-256 of {@code canonicalBytes},
+     * using someone else's public key hex - not tied to this node's own
+     * identity, unlike {@link #signAsNode}. Lets a host check who really sent
+     * something (a message, an attestation, ...) without ever importing
+     * {@code did-java}'s {@code Bip340} itself. False on any malformed input
+     * rather than throwing, since a bad signature/key from a peer is an
+     * ordinary outcome to check for, not an exceptional one.
+     */
+    boolean verify(byte[] signature, byte[] canonicalBytes, String publicKeyHex);
 }

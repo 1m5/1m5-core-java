@@ -255,6 +255,18 @@ follow-up in `1m5-remnant/DESIGN.md` §"Impact on 1m5-android").
       `EmbeddedCoreClientTest.readyTransportsSurfacesTheHostsOwnLocalAddress`
       proves it round-trips through `registerProtocol` → `readyTransports()`.
       42/42 green.
+- [x] **`verify(byte[], byte[], String)`** (11th verb): the mirror of
+      `signAsNode` - checks *someone else's* BIP-340 signature, not this
+      node's own. Found needed closing `1m5-remnant`'s messaging gap "no
+      message authentication": a host had no way to check who really sent a
+      message without importing `did-java`'s `Bip340` directly (which ADR 2 in
+      `1m5-remnant/DESIGN.md` rules out for `:app`). SHA-256s `canonicalBytes`
+      then BIP-340-verifies against `publicKeyHex`; returns `false` on
+      malformed input rather than throwing, since a bad signature/key from a
+      peer is an ordinary outcome to check for.
+      `EmbeddedCoreClientTest.verifyAcceptsARealSignatureAndRejectsTampering`
+      covers the real-signature, tampered-content, and malformed-key cases.
+      43/43 green.
 - [ ] `CoreClientContractTest` (abstract) — runs against `EmbeddedCoreClient` now,
       `HttpCoreClient` when the ADR-0003 RPC API lands. Not built yet;
       `EmbeddedCoreClientTest` is a concrete, non-abstract stand-in until there is a
