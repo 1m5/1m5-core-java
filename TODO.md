@@ -201,6 +201,36 @@ follow-up in `1m5-remnant/DESIGN.md` §"Impact on 1m5-android").
       drive `RelayedExternalRoute` construction on the outbound path (the router
       builds those itself when it decides to relay) - revisit if an app-originated
       relay hint becomes a real use case.
+- [x] **`PeerDirectory` is now reachable from `CoreClient`.** Found while
+      designing `1m5-remnant`'s messaging outbound path: an app can never touch
+      `PeerDirectory`/`NetworkPeer` directly (bus-internal types), and nothing
+      populated it from a `CoreClient`-originated `Msg`, so `dispatchDirect`
+      could never find an address-matched destination for any contact the app
+      didn't already know a raw network address for. Fixed with
+      `RoutingService.OPERATION_REGISTER_PEER`: a `Msg` addressed at
+      `RoutingService.class.getName()` with that operation, carrying
+      `x.dest.peerId` (fingerprint) and any of `x.dest.i2p`/`x.dest.tor`/
+      `x.dest.bt` it has learned, registers one `NetworkPeer` per address header
+      present. No new `CoreClient` verb (ADR2 in `1m5-remnant/DESIGN.md`
+      deliberately keeps app-specific verbs out) - this reuses the existing
+      "business channel + operation" mechanism, symmetric with
+      `IdentityService.OPERATION_GET_NODE_IDENTITY`.
+      **Real finding, fixed alongside it**: `MsgTranslator.toEnvelope` computed
+      the `x.dest.*` values from `Msg` headers but only ever used them for a
+      *protocol*-channel hop's `ExternalRoute` - addressing `RoutingService`
+      (a business channel) silently dropped them all, so
+      `RoutingService.facts()`'s own header fallback for the destination
+      fingerprint could never fire from any `CoreClient`-originated `Msg`. Fixed
+      by also setting them as plain envelope headers unconditionally.
+      `EmbeddedCoreClientTest.sendToRoutingServiceWithOnlyAFingerprintReachesTheAddressMatchedProtocol`
+      proves the full path: register a peer's I2P address, then send with only
+      a fingerprint and confirm it reaches the right `ProtocolHandle` with the
+      right `x.dest.i2p` header attached. 40/40 green.
+      **Still open, not this change**: no liveness/reliability scoring
+      (`PeerDirectory`'s own documented skeleton-scope limit, unrelated to this
+      fix) and no contact/address-exchange format to actually *learn* a
+      contact's addresses in the first place - that is `1m5-remnant`'s to
+      design (its `TODO.md` §"Step 4" tracks it), not this module's.
 - [ ] `CoreClientContractTest` (abstract) — runs against `EmbeddedCoreClient` now,
       `HttpCoreClient` when the ADR-0003 RPC API lands. Not built yet;
       `EmbeddedCoreClientTest` is a concrete, non-abstract stand-in until there is a

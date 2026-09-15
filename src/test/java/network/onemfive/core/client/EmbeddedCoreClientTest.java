@@ -3,6 +3,7 @@ package network.onemfive.core.client;
 import network.onemfive.core.Core;
 import network.onemfive.core.MockBusinessService;
 import network.onemfive.core.identity.IdentityService;
+import network.onemfive.core.routing.RoutingService;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -182,5 +183,42 @@ public class EmbeddedCoreClientTest {
         Assert.assertTrue("handler should receive the relayed message", received.await(5, TimeUnit.SECONDS));
         Assert.assertEquals("peer-1", inbox.peek().getSender());
         Assert.assertArrayEquals("hello from a peer".getBytes(StandardCharsets.UTF_8), inbox.peek().getPayload());
+    }
+
+    /**
+     * The real messaging outbound path: the app knows nothing about protocols,
+     * only a contact's fingerprint - it addresses {@link RoutingService} and lets
+     * it resolve the right transport from {@link network.onemfive.core.routing.PeerDirectory},
+     * populated here by a prior {@code REGISTER_PEER} message (what a contact's
+     * out-of-band address exchange would trigger). Exercises the fix to
+     * {@code MsgTranslator.toEnvelope} that stopped {@code x.dest.*} headers from
+     * being silently dropped when the addressed channel isn't a protocol one.
+     */
+    @Test
+    public void sendToRoutingServiceWithOnlyAFingerprintReachesTheAddressMatchedProtocol() throws Exception {
+        TestProtocolHandle handle = new TestProtocolHandle();
+        client.registerProtocol(handle);
+        Assert.assertTrue(client.awaitReady(5_000, "TEST"));
+
+        CountDownLatch registered = new CountDownLatch(1);
+        Msg register = new Msg()
+                .to(RoutingService.class.getName(), RoutingService.OPERATION_REGISTER_PEER)
+                .header("x.dest.peerId", "bob")
+                .header("x.dest.i2p", "bob.b32.i2p");
+        client.send(register, reply -> registered.countDown());
+        Assert.assertTrue("peer registration should complete", registered.await(5, TimeUnit.SECONDS));
+
+        CountDownLatch replied = new CountDownLatch(1);
+        Msg msg = new Msg()
+                .to(RoutingService.class.getName(), RoutingService.OPERATION_ROUTE)
+                .header("x.sensitivity", "4")
+                .header("x.dest.peerId", "bob")
+                .setPayload("hi bob".getBytes(StandardCharsets.UTF_8));
+        client.send(msg, reply -> replied.countDown());
+
+        Assert.assertTrue("reply callback should fire", replied.await(5, TimeUnit.SECONDS));
+        Assert.assertEquals(1, handle.sent.size());
+        Assert.assertArrayEquals("hi bob".getBytes(StandardCharsets.UTF_8), handle.sent.peek().getPayload());
+        Assert.assertEquals("bob.b32.i2p", handle.sent.peek().header("x.dest.i2p"));
     }
 }

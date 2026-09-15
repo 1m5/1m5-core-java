@@ -293,6 +293,28 @@ tested (`EscalationRouterTest`, 12 cases). The ladder, ported from
    Web requests relay through any peer on a ready acceptable network.
 6. Nothing → **HOLD**.
 
+**Populating `PeerDirectory` from `CoreClient`.** A host never touches
+`PeerDirectory`/`NetworkPeer` directly (bus-internal types, not part of the
+`CoreClient` boundary) - it sends `RoutingService.OPERATION_REGISTER_PEER` on a
+`Msg` addressed to `RoutingService.class.getName()`, with `x.dest.peerId` (the
+fingerprint) and any of `x.dest.i2p`/`x.dest.tor`/`x.dest.bt` it has learned for
+that contact (e.g. from an out-of-band exchange - `1m5-android`'s `DCard` is the
+closest existing analog, not yet redesigned for this). `RoutingService`
+registers one `NetworkPeer` per address header present. Sending to a contact
+afterward needs nothing more than `x.dest.peerId` on an `OPERATION_ROUTE` `Msg`
+- step 4 above resolves the rest from the directory.
+
+**Real finding, fixed alongside this:** `MsgTranslator.toEnvelope` computed
+`destPeerId`/`destI2p`/`destTor`/`destBt` from `Msg` headers but only ever used
+them to build an `ExternalRoute` for a *protocol*-channel hop - addressing
+`RoutingService` (a business channel, exactly what an app does when it wants
+the router to pick the protocol) silently dropped every `x.dest.*` header,
+which meant `RoutingService.facts()`'s own header-based fingerprint fallback
+could never actually fire from a `CoreClient`-originated `Msg`. Fixed by also
+setting these as plain envelope headers regardless of hop type; harmless
+duplication on a protocol-channel hop (the `ExternalRoute`-derived value simply
+overwrites it again on the way back out through `MsgTranslator.toMsg`).
+
 **Hold + retry.** Held envelopes go into a map keyed by envelope id;
 `RetryStrategy` (ported from Remnant: 20 s, constant for 20 min, ×2 backoff, 1 h
 cap, 24 h give-up) schedules the next attempt through the `RetryScheduler` seam

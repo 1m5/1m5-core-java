@@ -98,6 +98,18 @@ final class MsgTranslator {
             }
         }
 
+        // Also surfaced as plain headers (not just folded into an ExternalRoute
+        // below) so a business channel - RoutingService's OPERATION_ROUTE reading
+        // x.dest.peerId as its destination fingerprint, or OPERATION_REGISTER_PEER
+        // reading all four to populate PeerDirectory - can see them too. Without
+        // this, addressing a non-protocol channel (which is exactly what the app
+        // does when it wants the router to resolve the protocol, not name one
+        // itself) silently dropped every x.dest.* header on the floor.
+        if (destPeerId != null) e.setHeader(X_DEST_PEER_ID, destPeerId);
+        if (destI2p != null) e.setHeader(X_DEST_I2P, destI2p);
+        if (destTor != null) e.setHeader(X_DEST_TOR, destTor);
+        if (destBt != null) e.setHeader(X_DEST_BT, destBt);
+
         // NetworkPeer has no no-arg constructor - it needs a Network up front, so a
         // destination is only buildable when one of the network-scoped address
         // headers is present; a bare x.dest.peerId with no network hint is dropped.

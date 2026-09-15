@@ -56,10 +56,26 @@ public final class RoutingService extends BusinessService {
 
     public static final String OPERATION_ROUTE = "ROUTE";
 
+    /**
+     * Register a peer's known network address(es) into {@link #peerDirectory()}
+     * - the {@code CoreClient}-reachable counterpart to calling
+     * {@code peerDirectory().put(...)} directly (a bus-internal type, not
+     * something an app-layer host may touch). Reads {@link #HEADER_X_DEST_PEER}
+     * as the fingerprint and any of {@code x.dest.i2p}/{@code x.dest.tor}/
+     * {@code x.dest.bt} present as that peer's address on each network - a host
+     * that has learned more than one of a contact's addresses (e.g. from an
+     * out-of-band exchange) registers them all in one {@code Msg} by setting
+     * more than one of those headers.
+     */
+    public static final String OPERATION_REGISTER_PEER = "REGISTER_PEER";
+
     /** Optional header naming the destination peer's DID fingerprint for P2P routing. */
     public static final String HEADER_DEST_FINGERPRINT = "1m5.route.dest";
     /** Reserved {@code CoreClient} header carrying the same thing. */
     public static final String HEADER_X_DEST_PEER = "x.dest.peerId";
+    private static final String HEADER_X_DEST_I2P = "x.dest.i2p";
+    private static final String HEADER_X_DEST_TOR = "x.dest.tor";
+    private static final String HEADER_X_DEST_BT = "x.dest.bt";
 
     private final EscalationRouter engine = new EscalationRouter();
     private final PeerDirectory peers = new PeerDirectory();
@@ -116,12 +132,41 @@ public final class RoutingService extends BusinessService {
 
     @Override
     public void handleDocument(Envelope envelope) {
+        if (OPERATION_REGISTER_PEER.equals(operationOf(envelope))) {
+            registerPeer(envelope);
+            return;
+        }
         route(envelope);
     }
 
     @Override
     public void handleHeaders(Envelope envelope) {
         route(envelope);
+    }
+
+    private static String operationOf(Envelope envelope) {
+        return envelope.getRoute() != null ? envelope.getRoute().getOperation() : null;
+    }
+
+    private void registerPeer(Envelope envelope) {
+        String fingerprint = String.valueOf(envelope.getHeader(HEADER_X_DEST_PEER));
+        Object i2p = envelope.getHeader(HEADER_X_DEST_I2P);
+        Object tor = envelope.getHeader(HEADER_X_DEST_TOR);
+        Object bt = envelope.getHeader(HEADER_X_DEST_BT);
+        int registered = 0;
+        registered += putIfPresent(fingerprint, Network.I2P, i2p);
+        registered += putIfPresent(fingerprint, Network.Tor, tor);
+        registered += putIfPresent(fingerprint, Network.Bluetooth, bt);
+        LOG.info("registered " + registered + " address(es) for peer " + fingerprint);
+    }
+
+    private int putIfPresent(String fingerprint, Network network, Object address) {
+        if (fingerprint == null || "null".equals(fingerprint) || address == null) return 0;
+        NetworkPeer peer = new NetworkPeer(network);
+        peer.setId(fingerprint);
+        peer.getDid().getPublicKey().setAddress(String.valueOf(address));
+        peers.put(peer);
+        return 1;
     }
 
     // -- routing --------------------------------------------------
