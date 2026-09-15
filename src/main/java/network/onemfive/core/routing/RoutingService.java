@@ -188,11 +188,11 @@ public final class RoutingService extends BusinessService {
             return;
         }
         applyManConParameters(envelope, d.effectiveManCon);
+        String channel = Core.get().resolveChannel(proto.channelName());
         if (d.destination != null) {
-            envelope.addExternalRoute(proto.getClass().getName(), ProtocolService.OPERATION_SEND,
-                    null, d.destination);
+            envelope.addExternalRoute(channel, ProtocolService.OPERATION_SEND, null, d.destination);
         } else {
-            envelope.addExternalRoute(proto.getClass().getName(), ProtocolService.OPERATION_SEND);
+            envelope.addExternalRoute(channel, ProtocolService.OPERATION_SEND);
         }
         LOG.info("routed " + envelope.getId() + " " + sa);
     }
@@ -205,7 +205,7 @@ public final class RoutingService extends BusinessService {
         }
         applyManConParameters(envelope, d.effectiveManCon);
         RelayedExternalRoute rr = new RelayedExternalRoute();
-        rr.setService(proto.getClass().getName());
+        rr.setService(Core.get().resolveChannel(proto.channelName()));
         rr.setOperation(ProtocolService.OPERATION_SEND);
         rr.setFromPeer(d.relayPeer);
         rr.setToPeer(d.destination);

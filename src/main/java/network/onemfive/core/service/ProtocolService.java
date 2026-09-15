@@ -1,6 +1,7 @@
 package network.onemfive.core.service;
 
 import ra.common.Envelope;
+import ra.common.network.Network;
 import ra.common.network.NetworkStatus;
 
 import java.util.logging.Logger;
@@ -33,6 +34,20 @@ public abstract class ProtocolService extends CoreService implements Transport {
     @Override
     public NetworkStatus getNetworkStatus() {
         return networkStatus;
+    }
+
+    /**
+     * Stable channel name the router and {@code CoreClient} address this adapter
+     * by, instead of {@code getClass().getName()}. Defaults to the transport's
+     * {@link #getNetwork()} name (e.g. {@code "I2P"}); a host-supplied adapter
+     * ({@code HandleBackedProtocolService}) overrides this with its
+     * {@code ProtocolHandle}'s own name. See {@code Core#resolveChannel(String)}
+     * for how this maps back to the name the bus actually registered the instance
+     * under.
+     */
+    public String channelName() {
+        Network n = getNetwork();
+        return n != null ? n.name() : getClass().getName();
     }
 
     protected void setNetworkStatus(NetworkStatus status) {

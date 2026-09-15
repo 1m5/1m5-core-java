@@ -491,18 +491,33 @@ already uses.
 
     Msg {
       String              id
-      String              to          // channel name or peer address
       String              sender
       Map<String,String>  headers     // routing scalars live in reserved x.* keys
       byte[]              payload
-      Deque<String>       slip        // channel names, front = next hop
+      Deque<Hop>          slip        // the route: front = next hop
       int                 attempts
     }
+
+    Hop {
+      String channel      // the service - Route.getService()
+      String operation    // the method on it - Route.getOperation()
+    }
+
+A channel is never addressed without saying which of its methods to invoke, so
+`Hop` always carries both - the same `service` / `operation` split
+`ra.common.route.Route` already makes, not a header convention. A
+protocol/transport channel only ever implements one method (`OPERATION_SEND`),
+applied regardless of what a `Hop` says; a business or data channel (e.g.
+`"Bitcoin"`) implements several, so a caller addressing one always sets
+`operation` - there is no sensible default. `Msg.to(channel, operation)` is the
+common single-hop case: it replaces the whole slip with one `Hop`.
 
 Routing scalars are carried as reserved `x.*` headers rather than typed fields:
 `x.sensitivity` (0–10), `x.url`, `x.serviceLevel`, `x.delayed` / `x.minDelayMs` /
 `x.maxDelayMs`, `x.copy` / `x.minCopies` / `x.maxCopies`,
-`x.dest.{i2p,tor,bt,peerId}`, `x.relay.peerId`, `x.error.*`.
+`x.dest.{i2p,tor,bt,peerId}`, `x.relay.peerId`, `x.error.*`. Everything else in
+`headers` passes through unchanged to the underlying `Envelope`'s own header map -
+an operation's own named parameters (e.g. a Bitcoin send amount/address).
 
 **Transport registration — callback-shaped:**
 
@@ -549,12 +564,16 @@ golden files follow the `did-vectors` fixture style.
 ## Android reuse
 
 The pure-JVM constraint makes an in-process Android core possible, but the plan
-lives in **`1m5-android/DESIGN.md` §"1M5 Core Integration (Target Architecture)"**,
-which is authoritative for how Remnant adopts this core (`:core-host` module, the
-`I2PProtocolAdapter` / `TorProtocolAdapter` that wrap Remnant's existing embedded
-transports, the `OneMFiveApplication` compatibility shim, the service-by-service
-cutover). That work changes no code in this repo and no code in `1m5-android`
-during the current design pass.
+lives in **`1m5-remnant/DESIGN.md`**, which is authoritative for how Remnant
+adopts this core (`:core-host` module, `I2PProtocolAdapter` / `TorProtocolAdapter`
+ported from `1m5-android`'s embedded transports and refactored onto
+`ProtocolHandle` directly). `1m5-remnant` is a green-field rewrite, not an
+in-place cutover of `1m5-android` - see that document's "Why a new repository
+instead of an in-place cutover" - so there is no `OneMFiveApplication`
+compatibility shim to design here. `1m5-android/DESIGN.md`'s own copy of this
+plan (§"1M5 Core Integration (Target Architecture)") is superseded; that repo
+stays untouched and in production until `1m5-remnant` reaches parity (see
+`1m5-remnant/DESIGN.md` §"Impact on `1m5-android`").
 
 The invariant this repo owns: the core stays **pure JVM** (no `android.*`);
 `ProtocolService` adapters are per-platform; the host translates its own message

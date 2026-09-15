@@ -136,20 +136,58 @@ roadmap.
 Package `network.onemfive.core.client`, part of the `1m5-core` jar (no separate
 module). See [`DESIGN.md`](DESIGN.md) §"The embedding contract" and
 `1m5-docs/architecture/README.md` §"The 1M5 Core contract" (the `Msg` / `CoreClient`
-shape must stay identical across those and `1m5-android/DESIGN.md`).
+shape must stay identical across those and `1m5-remnant/DESIGN.md` -
+`1m5-android/DESIGN.md`'s own copy is superseded; see that repo's doc-pointer
+follow-up in `1m5-remnant/DESIGN.md` §"Impact on 1m5-android").
 
-- [ ] `CoreClient` interface (~8 verbs), `Msg` (flat: `id`, `to`, `sender`,
-      `Map<String,String> headers`, `byte[] payload`, `Deque<String> slip`,
-      `int attempts`; routing scalars in reserved `x.*` headers), `ProtocolHandle`,
-      `CoreInbound`, `ReplyHandler`, `TransportStatus`, `IdentityStatus`.
-- [ ] `ProtocolService.channelName()`; `RoutingService` routes on it, not
-      `getClass().getName()`; `Core` `name → service` alias table.
-- [ ] `EmbeddedCoreClient`: `Msg` ↔ `ra.common.Envelope` translation over
-      `Core.get()`; `x.*` headers ↔ `Envelope` scalar setters; slip reversed
-      front-to-back ↔ LIFO stack; `HandleBackedProtocolService` wrapping a
-      `ProtocolHandle`.
+- [x] `CoreClient` interface (~8 verbs), `Msg` (flat: `id`, `sender`,
+      `Map<String,String> headers`, `byte[] payload`, `Deque<Hop> slip`,
+      `int attempts`; routing scalars in reserved `x.*` headers), `Msg.Hop`
+      (`channel` + `operation`), `ProtocolHandle`, `CoreInbound`, `ReplyHandler`,
+      `TransportStatus`, `IdentityStatus`. A `Hop`'s `channel`/`operation` mirror
+      `Route.getService()`/`Route.getOperation()` exactly - a channel is never
+      addressed without saying which method to invoke on it, so the two are one
+      value, not two independent `Msg` fields (a protocol channel only ever
+      implements one operation, `OPERATION_SEND`, applied regardless of what a
+      `Hop` says; a business/data channel requires the caller to set it - see
+      `EmbeddedCoreClientTest.sendWithOperationInvokesTheNamedMethodOnABusinessChannel`).
+      `Msg.to(channel, operation)` is the common single-hop convenience.
+- [x] `ProtocolService.channelName()` (defaults to `getNetwork().name()`);
+      `RoutingService` routes on it via `Core.resolveChannel(String)`, not
+      `getClass().getName()`; `Core.resolveChannel` is the `name → service` alias
+      table, resolved lazily against `ServiceBus.getRegisteredServiceNames()`
+      (no `service-bus` change, as planned).
+- [x] `EmbeddedCoreClient`: `Msg` ↔ `ra.common.Envelope` translation
+      (`MsgTranslator`) over `Core.get()`; `x.*` headers ↔ `Envelope` scalar
+      setters; slip reversed front-to-back ↔ LIFO stack; `HandleBackedProtocolService`
+      wrapping a `ProtocolHandle`, registered under the handle's own `name()` via a
+      lock-guarded static handoff (construction is synchronous inside
+      `ServiceBus.registerService`, so this needs no `service-bus` change either).
+      `IdentityService.signAsNode(byte[])` added (BIP-340 sign over SHA-256 of the
+      caller's bytes via `did-java`'s `Bip340.sign`, no `did-java` change) since
+      `signAsNode(NostrEvent)` alone couldn't back the `CoreClient` verb.
+      `EmbeddedCoreClientTest` covers identity, signing, protocol registration, and
+      a full send round-trip through a fake `ProtocolHandle` — green.
+- [ ] **Known gap - inbound delivery has nowhere to go.** `CoreInbound.accept(Msg)`
+      (what a host calls when its transport receives something) currently just
+      re-enters the bus as a fresh envelope (`HandleBackedProtocolService.inbound()`)
+      - there is no `CoreClient` verb for an app-layer host to register its own
+      inbound listener, so nothing consumes it yet. Resolve (likely a 9th verb, or
+      routing inbound envelopes to a fixed well-known channel the host also
+      registers against) before wiring a real transport end-to-end in
+      `1m5-remnant`.
+- [x] `Msg.Hop` (channel + operation, replacing separate `to`/`operation` fields
+      and a bare-channel-name `slip`) landed in `DESIGN.md`,
+      `1m5-docs/architecture/README.md`, and `1m5-remnant/DESIGN.md` - all three
+      read identically per this section's own rule.
+- [ ] `x.relay.peerId` / `x.error.*` round-trip as plain headers but do not yet
+      drive `RelayedExternalRoute` construction on the outbound path (the router
+      builds those itself when it decides to relay) - revisit if an app-originated
+      relay hint becomes a real use case.
 - [ ] `CoreClientContractTest` (abstract) — runs against `EmbeddedCoreClient` now,
-      `HttpCoreClient` when the ADR-0003 RPC API lands.
+      `HttpCoreClient` when the ADR-0003 RPC API lands. Not built yet;
+      `EmbeddedCoreClientTest` is a concrete, non-abstract stand-in until there is a
+      second `CoreClient` implementation to share it with.
 - [ ] JSON golden files for the `Msg` wire form (`did-vectors`-style fixtures).
       This JSON is also the ADR-0003 RPC envelope encoding.
 

@@ -2,6 +2,7 @@ package network.onemfive.core.identity;
 
 import network.onemfive.core.service.DataService;
 import ra.common.Envelope;
+import ra.did.nostr.Bip340;
 import ra.did.nostr.NostrEvent;
 import ra.did.nostr.NostrIdentity;
 import ra.did.nostr.NostrIdentityStore;
@@ -11,6 +12,8 @@ import ra.did.nostr.NostrKeys;
 import java.io.File;
 import java.nio.file.Files;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.logging.Logger;
@@ -69,6 +72,31 @@ public final class IdentityService extends DataService {
     public NostrEvent signAsNode(NostrEvent event) {
         if (!hasNodeSecret()) throw new IllegalStateException("node secret unavailable");
         return keyRing.sign(event, node);
+    }
+
+    /**
+     * BIP-340 Schnorr-sign the SHA-256 of {@code canonicalBytes} with the node's
+     * key - the {@link network.onemfive.core.client.CoreClient#signAsNode(byte[])}
+     * primitive. Requires {@link #hasNodeSecret()}. Unlike {@link #signAsNode(NostrEvent)}
+     * this does not build or verify a Nostr event; the caller owns whatever
+     * canonical form {@code canonicalBytes} is (a Nostr event's own canonical
+     * preimage, or any other canonical payload the host needs the node identity to
+     * attest to).
+     */
+    public byte[] signAsNode(byte[] canonicalBytes) {
+        if (!hasNodeSecret()) throw new IllegalStateException("node secret unavailable");
+        byte[] digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256").digest(canonicalBytes);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+        byte[] secret = NostrKeys.fromHex(node.secretHex());
+        try {
+            return Bip340.sign(digest, secret);
+        } finally {
+            Arrays.fill(secret, (byte) 0);
+        }
     }
 
     @Override

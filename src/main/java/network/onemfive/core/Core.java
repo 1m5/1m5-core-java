@@ -4,6 +4,7 @@ import network.onemfive.core.service.CoreService;
 import network.onemfive.core.service.ProtocolService;
 import ra.common.Client;
 import ra.common.Envelope;
+import ra.common.service.Service;
 import ra.servicebus.ServiceBus;
 
 import java.util.ArrayList;
@@ -141,6 +142,37 @@ public final class Core {
             if (p.isReady()) ready.add(p);
         }
         return ready;
+    }
+
+    /**
+     * Name &rarr; service alias table for {@link ProtocolService#channelName()},
+     * resolved lazily against whatever the bus actually registered the instance
+     * under (no {@code service-bus} change - see
+     * {@code TODO.md} §"Embedding contract"): a standard adapter
+     * ({@code I2PProtocolService}, ...) is registered under its own class name, so
+     * this walks {@link ServiceBus#getRegisteredServiceNames()} looking for the one
+     * whose instance reports {@code channelName}. A host-supplied adapter
+     * ({@code network.onemfive.core.client.HandleBackedProtocolService}) is already
+     * registered directly under its channel name, so the loop finds nothing and the
+     * identity fallback returns {@code channelName} unchanged - which is already
+     * correct in that case.
+     */
+    @SuppressWarnings("unchecked")
+    public String resolveChannel(String channelName) {
+        if (bus == null) return channelName;
+        for (String registeredName : bus.getRegisteredServiceNames()) {
+            try {
+                Class<?> c = Class.forName(registeredName);
+                if (!ProtocolService.class.isAssignableFrom(c)) continue;
+                Object svc = bus.getService((Class<? extends Service>) c);
+                if (svc instanceof ProtocolService && channelName.equals(((ProtocolService) svc).channelName())) {
+                    return registeredName;
+                }
+            } catch (ClassNotFoundException ignored) {
+                // not a real class name - a host-supplied channel registered under its own stable name
+            }
+        }
+        return channelName;
     }
 
     // -- ManCon --------------------------------------------------
