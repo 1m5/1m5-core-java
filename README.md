@@ -85,6 +85,10 @@ attaches to a router already running on this host).
 Add `1m5.tor.enabled=true` to register the Tor protocol service (`tor-client-java`);
 it needs a **local Tor daemon** already running (SOCKS 9050 / control 9051).
 
+Add `1m5.http.enabled=true` to register the plain HTTP protocol service
+(`http-client-java`). Clearnet only — no anonymity; it exists as a fallback
+path, not a substitute for I2P/Tor.
+
 The localhost Envelope-JSON API that `1m5-desktop-java` speaks is not wired yet
 (see [`TODO.md`](TODO.md)).
 

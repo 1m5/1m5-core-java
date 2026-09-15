@@ -168,7 +168,10 @@ shape must stay identical across those and `1m5-android/DESIGN.md`).
 - [~] `TorProtocolService` — `NetworkServiceProtocol` around `ra.tor.TORClientService`
       (`tor-client-java` 1.2.1). Wired + `Daemon` registers it behind
       `1m5.tor.enabled=true`. Not run against a live Tor daemon. Tor is local-only.
-- [ ] `HTTPProtocolService` — `resolvingarchitecture:http-client`.
+- [~] `HttpProtocolService` — `NetworkServiceProtocol` around `ra.http.HTTPService`
+      (`resolvingarchitecture:http-client` 1.2.0). Wired + `Daemon` registers it
+      behind `1m5.http.enabled=true`. Clearnet, no anonymity; not run against a
+      live network.
 - [ ] The **localhost RPC API for `1m5-desktop-java`** (ADR-0003): a handler that
       speaks the `Msg` JSON encoding (unary calls + an inbound stream), bound to
       `127.0.0.1` with a token; `HttpCoreClient` in the `CoreClient` package is

@@ -1,6 +1,7 @@
 package network.onemfive.core;
 
 import network.onemfive.core.identity.IdentityService;
+import network.onemfive.core.protocol.HttpProtocolService;
 import network.onemfive.core.protocol.I2PProtocolService;
 import network.onemfive.core.protocol.TorProtocolService;
 import network.onemfive.core.routing.RoutingService;
@@ -95,6 +96,14 @@ public final class Daemon extends ra.servicebus.Daemon {
             bus.registerAndStartService(TorProtocolService.class);
         } else {
             LOG.info("Tor protocol service not registered (set 1m5.tor.enabled=true to enable).");
+        }
+
+        if ("true".equalsIgnoreCase(config.getProperty("1m5.http.enabled"))) {
+            LOG.info("Registering HTTP protocol service (1m5.http.enabled=true). "
+                    + "Clearnet only - no anonymity.");
+            bus.registerAndStartService(HttpProtocolService.class);
+        } else {
+            LOG.info("HTTP protocol service not registered (set 1m5.http.enabled=true to enable).");
         }
 
         LOG.info("1M5 Core services running.");
