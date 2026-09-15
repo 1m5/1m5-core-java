@@ -13,6 +13,13 @@
 	<description>1M5 Core - intelligent censorship-resistant router built on the SEDA and Service buses</description>
 	<inceptionYear>2017</inceptionYear>
 
+	<licenses>
+		<license>
+			<name>MIT</name>
+			<url>https://opensource.org/licenses/MIT</url>
+		</license>
+	</licenses>
+
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<!--
