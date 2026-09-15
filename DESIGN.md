@@ -304,6 +304,16 @@ registers one `NetworkPeer` per address header present. Sending to a contact
 afterward needs nothing more than `x.dest.peerId` on an `OPERATION_ROUTE` `Msg`
 - step 4 above resolves the rest from the directory.
 
+`network.onemfive.core.client.RoutingChannel` holds the channel name, both
+operation names, and the header keys above as `public static final String`
+constants **in the `CoreClient` package itself** - so a host addresses
+`RoutingService` using only types it already imports, never
+`network.onemfive.core.routing.RoutingService` directly (which ADR 2 in
+`1m5-remnant/DESIGN.md` requires: `:app` sees no bus-internal package).
+`RoutingChannelTest` asserts the constants stay identical to `RoutingService`'s
+own; they are duplicated, not shared, since sharing would mean the one import
+this exists to avoid.
+
 **Real finding, fixed alongside this:** `MsgTranslator.toEnvelope` computed
 `destPeerId`/`destI2p`/`destTor`/`destBt` from `Msg` headers but only ever used
 them to build an `ExternalRoute` for a *protocol*-channel hop - addressing

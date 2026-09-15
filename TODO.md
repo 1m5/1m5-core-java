@@ -231,6 +231,17 @@ follow-up in `1m5-remnant/DESIGN.md` §"Impact on 1m5-android").
       fix) and no contact/address-exchange format to actually *learn* a
       contact's addresses in the first place - that is `1m5-remnant`'s to
       design (its `TODO.md` §"Step 4" tracks it), not this module's.
+- [x] **`RoutingChannel`** (`network.onemfive.core.client`): the channel name,
+      both operation names, and the destination header keys for addressing
+      `RoutingService`, as plain `String` constants in the `CoreClient`
+      package - found needed immediately while wiring `1m5-remnant`'s outbound
+      send, since without it a host has no way to build a `Msg` targeting
+      `RoutingService` without importing the bus-internal
+      `network.onemfive.core.routing` package outright, which ADR 2 in
+      `1m5-remnant/DESIGN.md` rules out. `RoutingChannelTest` asserts the
+      constants stay identical to `RoutingService`'s own (duplicated
+      deliberately, not shared - sharing would require the one import this
+      avoids). 41/41 green.
 - [ ] `CoreClientContractTest` (abstract) — runs against `EmbeddedCoreClient` now,
       `HttpCoreClient` when the ADR-0003 RPC API lands. Not built yet;
       `EmbeddedCoreClientTest` is a concrete, non-abstract stand-in until there is a
