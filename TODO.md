@@ -172,6 +172,13 @@ shape must stay identical across those and `1m5-android/DESIGN.md`).
       (`resolvingarchitecture:http-client` 1.2.0). Wired + `Daemon` registers it
       behind `1m5.http.enabled=true`. Clearnet, no anonymity; not run against a
       live network.
+- [x] `network.onemfive.core.business.BitcoinService` — composes `ra.btc.BitcoinService`
+      (`resolvingarchitecture:btc` 2.0.2, ported to bitcoinj 0.17.1) as a
+      `BusinessService`. Wired + `Daemon` registers it behind `1m5.bitcoin.enabled=true`.
+      Peer discovery/connections still don't route through the router's transports
+      (`getPeers` deliberately returns nothing; `ra.btc.socks.host`/`ra.btc.socks.port`
+      let bitcoinj's own peer group connect through a local SOCKS proxy in the
+      meantime) — real routing through I2P/Tor is still a TODO in `bitcoin-client-java`.
 - [ ] The **localhost RPC API for `1m5-desktop-java`** (ADR-0003): a handler that
       speaks the `Msg` JSON encoding (unary calls + an inbound stream), bound to
       `127.0.0.1` with a token; `HttpCoreClient` in the `CoreClient` package is

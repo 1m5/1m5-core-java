@@ -438,13 +438,16 @@ hooks:
   `awaitRunning`
 - `onStopping()` -> `Core.reset()`
 
-**Skeleton:** registers `IdentityService` and `RoutingService`. The **target** also
+**Skeleton:** registers `IdentityService` and `RoutingService`. The default I2P/Tor/HTTP
+`ProtocolService`s and the `network.onemfive.core.business.BitcoinService` business
+service (wrapping `resolvingarchitecture:btc`'s `ra.btc.BitcoinService`) are registered
+conditionally, each behind its own `1m5.<name>.enabled` flag. The **target** also
 registers `NotificationService` (status/event pub-sub — note `BaseService.updateStatus`
 hard-routes status events to `ra.notification.NotificationService`), a read-only
-legacy `DIDService`, the default I2P/Tor `ProtocolService`s, the Bitcoin services,
-and the **localhost Envelope-JSON HTTP API** (`ra.http.EnvelopeJSONDataHandler` on
-`127.0.0.1:2018`) that `1m5-desktop-java`'s `DesktopClient` already speaks — so
-the desktop keeps working unchanged. That needs `resolvingarchitecture:http-client`.
+legacy `DIDService`, and the **localhost Envelope-JSON HTTP API**
+(`ra.http.EnvelopeJSONDataHandler` on `127.0.0.1:2018`) that `1m5-desktop-java`'s
+`DesktopClient` already speaks — so the desktop keeps working unchanged. That needs
+`resolvingarchitecture:http-client`.
 
 ---
 

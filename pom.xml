@@ -122,12 +122,23 @@
 		</dependency>
 
 		<!--
+		  Bitcoin business service. Wrapped by network.onemfive.core.business.BitcoinService
+		  and registered by the Daemon only when 1m5.bitcoin.enabled=true (an SPV wallet
+		  sync via bitcoinj takes time on first start). Brings bitcoinj-core.
+		-->
+		<dependency>
+			<groupId>resolvingarchitecture</groupId>
+			<artifactId>btc</artifactId>
+			<version>2.0.2</version>
+		</dependency>
+
+		<!--
 		  Added as the corresponding capability is implemented (see TODO.md):
 		    resolvingarchitecture:notification  - status/event pub-sub (NotificationService)
 		    resolvingarchitecture:did           - legacy OpenPGP identity (read-only, migration)
 		    resolvingarchitecture:network-manager - InMemoryPeerDB / P2PRelationship for the router
 		    resolvingarchitecture:bluetooth-client - Bluetooth ProtocolService
-		    resolvingarchitecture:btc, dex      - Bitcoin business services
+		    resolvingarchitecture:dex           - Bitcoin/asset exchange business service
 		-->
 
 		<!-- Test -->

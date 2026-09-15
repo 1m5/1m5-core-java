@@ -1,5 +1,6 @@
 package network.onemfive.core;
 
+import network.onemfive.core.business.BitcoinService;
 import network.onemfive.core.identity.IdentityService;
 import network.onemfive.core.protocol.HttpProtocolService;
 import network.onemfive.core.protocol.I2PProtocolService;
@@ -23,9 +24,10 @@ import java.util.logging.Logger;
  * and which services to register.
  *
  * <p><b>Skeleton scope:</b> registers {@link IdentityService} and
- * {@link RoutingService}. NotificationService, a read-only legacy DIDService, the
- * default I2P/Tor {@code ProtocolService}s, the Bitcoin services, and the localhost
- * Envelope-JSON HTTP API come later (see TODO.md).
+ * {@link RoutingService}. NotificationService, a read-only legacy DIDService, and the
+ * localhost Envelope-JSON HTTP API come later (see TODO.md). The default I2P/Tor/HTTP
+ * {@code ProtocolService}s and the {@link BitcoinService} business service are registered
+ * conditionally, each behind its own {@code 1m5.<name>.enabled} flag.
  */
 public final class Daemon extends ra.servicebus.Daemon {
 
@@ -104,6 +106,14 @@ public final class Daemon extends ra.servicebus.Daemon {
             bus.registerAndStartService(HttpProtocolService.class);
         } else {
             LOG.info("HTTP protocol service not registered (set 1m5.http.enabled=true to enable).");
+        }
+
+        if ("true".equalsIgnoreCase(config.getProperty("1m5.bitcoin.enabled"))) {
+            LOG.info("Registering Bitcoin business service (1m5.bitcoin.enabled=true). "
+                    + "First start syncs an SPV wallet via bitcoinj - this can take a while.");
+            bus.registerAndStartService(BitcoinService.class);
+        } else {
+            LOG.info("Bitcoin business service not registered (set 1m5.bitcoin.enabled=true to enable).");
         }
 
         LOG.info("1M5 Core services running.");
