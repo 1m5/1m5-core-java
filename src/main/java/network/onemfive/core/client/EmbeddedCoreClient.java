@@ -77,6 +77,12 @@ public final class EmbeddedCoreClient implements CoreClient {
     }
 
     @Override
+    public boolean registerChannel(String channel, CoreInbound handler) {
+        if (!Core.get().isRunning()) throw new IllegalStateException("core not started");
+        return AppChannelService.registerFor(channel, handler, Core.get().bus(), config);
+    }
+
+    @Override
     public boolean awaitReady(long timeoutMs, String... channels) {
         if (channels == null || channels.length == 0) return true;
         long deadline = System.currentTimeMillis() + timeoutMs;

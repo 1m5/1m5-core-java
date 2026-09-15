@@ -140,7 +140,7 @@ shape must stay identical across those and `1m5-remnant/DESIGN.md` -
 `1m5-android/DESIGN.md`'s own copy is superseded; see that repo's doc-pointer
 follow-up in `1m5-remnant/DESIGN.md` §"Impact on 1m5-android").
 
-- [x] `CoreClient` interface (~8 verbs), `Msg` (flat: `id`, `sender`,
+- [x] `CoreClient` interface (10 verbs), `Msg` (flat: `id`, `sender`,
       `Map<String,String> headers`, `byte[] payload`, `Deque<Hop> slip`,
       `int attempts`; routing scalars in reserved `x.*` headers), `Msg.Hop`
       (`channel` + `operation`), `ProtocolHandle`, `CoreInbound`, `ReplyHandler`,
@@ -168,14 +168,31 @@ follow-up in `1m5-remnant/DESIGN.md` §"Impact on 1m5-android").
       `signAsNode(NostrEvent)` alone couldn't back the `CoreClient` verb.
       `EmbeddedCoreClientTest` covers identity, signing, protocol registration, and
       a full send round-trip through a fake `ProtocolHandle` — green.
-- [ ] **Known gap - inbound delivery has nowhere to go.** `CoreInbound.accept(Msg)`
-      (what a host calls when its transport receives something) currently just
-      re-enters the bus as a fresh envelope (`HandleBackedProtocolService.inbound()`)
-      - there is no `CoreClient` verb for an app-layer host to register its own
-      inbound listener, so nothing consumes it yet. Resolve (likely a 9th verb, or
-      routing inbound envelopes to a fixed well-known channel the host also
-      registers against) before wiring a real transport end-to-end in
-      `1m5-remnant`.
+- [x] **Resolved - inbound delivery now has somewhere to go.**
+      `registerChannel(String channel, CoreInbound handler)` (the 10th verb) +
+      `AppChannelService` (the `HandleBackedProtocolService` counterpart for a
+      business channel the app owns, e.g. `"messaging"`): registered on the bus
+      under `channel` via the same lock-guarded static handoff; `handleDocument`
+      converts the arriving `Envelope` back to a `Msg` and calls
+      `handler.accept(msg)`. `CoreInbound` is reused as the callback shape in
+      both directions rather than adding a near-identical second type.
+      **Real finding, fixed same-day**: `AppChannelService` needs to be `public`
+      (not package-private) - `ServiceBus`'s reflective construction throws
+      `IllegalAccessException` otherwise; caught immediately by the new tests
+      below, exactly why they were worth writing rather than trusting the design
+      by inspection.
+      `EmbeddedCoreClientTest.registeredChannelReceivesAMessageAddressedToIt` and
+      `.aProtocolHandlesInboundMessageReachesARegisteredChannel` (the latter
+      simulates exactly what a real `ProtocolHandle` does on inbound - construct
+      a `Msg` addressed at the app's channel and call the `CoreInbound`
+      `registerProtocol` returned) - both green, 39/39 total.
+      **Still open, not this change**: this only proves the in-process path.
+      Wiring a real transport end-to-end in `1m5-remnant` additionally needs the
+      transport adapters to actually address inbound `Msg`s at a business
+      channel (today they build a bare sender+payload `Msg` with an empty slip -
+      see `1m5-remnant/TODO.md`), and, for a genuinely cross-node business
+      channel (not a single hardcoded `"messaging"` convention), the `Msg` wire
+      JSON below so a remote peer's own routing intent survives the wire.
 - [x] `Msg.Hop` (channel + operation, replacing separate `to`/`operation` fields
       and a bare-channel-name `slip`) landed in `DESIGN.md`,
       `1m5-docs/architecture/README.md`, and `1m5-remnant/DESIGN.md` - all three

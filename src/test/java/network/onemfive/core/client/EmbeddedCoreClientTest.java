@@ -142,4 +142,45 @@ public class EmbeddedCoreClientTest {
         Assert.assertEquals(1, MockBusinessService.RECEIVED.size());
         Assert.assertTrue(MockBusinessService.OPERATIONS.contains("HANDLE_PAYMENT"));
     }
+
+    /** Closes the gap {@link CoreInbound}'s javadoc used to describe: a Msg sent to an app-registered channel now actually reaches its handler. */
+    @Test
+    public void registeredChannelReceivesAMessageAddressedToIt() throws Exception {
+        CountDownLatch received = new CountDownLatch(1);
+        ConcurrentLinkedQueue<Msg> inbox = new ConcurrentLinkedQueue<>();
+        boolean ok = client.registerChannel("messaging", msg -> { inbox.add(msg); received.countDown(); });
+        Assert.assertTrue("registerChannel should complete", ok);
+
+        Msg msg = new Msg().to("messaging", "RECEIVE").setPayload("hi".getBytes(StandardCharsets.UTF_8));
+        Assert.assertTrue(client.send(msg));
+
+        Assert.assertTrue("handler should receive the message", received.await(5, TimeUnit.SECONDS));
+        Assert.assertArrayEquals("hi".getBytes(StandardCharsets.UTF_8), inbox.peek().getPayload());
+    }
+
+    /**
+     * The full inbound-from-transport path: what an {@code I2PProtocolAdapter}
+     * (or any {@link ProtocolHandle}) does when a real peer's message arrives -
+     * construct a {@link Msg} addressed at the app's business channel and hand it
+     * to the {@link CoreInbound} {@link CoreClient#registerProtocol} returned.
+     * Before {@code registerChannel} existed, this had nowhere to go.
+     */
+    @Test
+    public void aProtocolHandlesInboundMessageReachesARegisteredChannel() throws Exception {
+        TestProtocolHandle handle = new TestProtocolHandle();
+        CoreInbound protocolInbound = client.registerProtocol(handle);
+        Assert.assertTrue(client.awaitReady(5_000, "TEST"));
+
+        CountDownLatch received = new CountDownLatch(1);
+        ConcurrentLinkedQueue<Msg> inbox = new ConcurrentLinkedQueue<>();
+        client.registerChannel("messaging", msg -> { inbox.add(msg); received.countDown(); });
+
+        Msg incoming = new Msg().to("messaging", "RECEIVE").setSender("peer-1")
+                .setPayload("hello from a peer".getBytes(StandardCharsets.UTF_8));
+        protocolInbound.accept(incoming);
+
+        Assert.assertTrue("handler should receive the relayed message", received.await(5, TimeUnit.SECONDS));
+        Assert.assertEquals("peer-1", inbox.peek().getSender());
+        Assert.assertArrayEquals("hello from a peer".getBytes(StandardCharsets.UTF_8), inbox.peek().getPayload());
+    }
 }

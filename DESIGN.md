@@ -473,7 +473,7 @@ localhost RPC API that `1m5-desktop-java` speaks (ADR-0003), and (usefully but
 not by design) the flat `Envelope` the Rust core (`1m5-core-rust`, for `1m505`)
 already uses.
 
-**Verbs — `CoreClient` (~8):**
+**Verbs — `CoreClient` (10):**
 
 | Verb | Purpose |
 |---|---|
@@ -482,6 +482,7 @@ already uses.
 | `send(Msg)` | fire-and-forget outbound |
 | `send(Msg, ReplyHandler)` | outbound with a completion callback |
 | `CoreInbound registerProtocol(ProtocolHandle)` | register a transport the host owns; returns the sink the core calls for inbound payloads |
+| `boolean registerChannel(String channel, CoreInbound handler)` | register the app's own inbox for a business channel (e.g. `"messaging"`); `handler` is called when a `Msg`'s slip terminates there |
 | `awaitReady(long timeoutMs, String... channels)` | block until named channels are ready |
 | `List<TransportStatus> readyTransports()` | which transports report ready |
 | `IdentityStatus identityStatus()` | node identity summary (public id only) |
@@ -528,9 +529,9 @@ an operation's own named parameters (e.g. a Bitcoin send amount/address).
       boolean         send(Msg) // carry it out over this transport
     }
 
-    CoreInbound {               // the core returns this
-      void accept(Msg)          // host calls it for every inbound payload
-    }
+    CoreInbound {               // the core returns this from registerProtocol,
+      void accept(Msg)          // and takes one as the handler in registerChannel -
+    }                           // same shape, both directions (see class javadoc)
 
 **Addressing is by stable string channel name**, never by `Class<?>`.
 `ProtocolService` gains a `channelName()`; `RoutingService.choose()` routes on it
@@ -551,6 +552,14 @@ instead of `getClass().getName()`; `Core` keeps a `name → service` alias table
   `HandleBackedProtocolService` (`channelName()` = `handle.name()`) and registers
   it on the bus; the returned `CoreInbound` feeds inbound `Msg`s back through the
   producer.
+- `registerChannel(channel, handler)` is the counterpart for the app's own
+  inbox: it wraps `handler` in a synthetic `AppChannelService`, registered on the
+  bus under `channel` (e.g. `"messaging"`). When a `Msg`'s slip terminates there
+  - this app is the final destination, not a relay hop - `handleDocument`
+  converts the `Envelope` back to a `Msg` and calls `handler.accept(msg)`. Closes
+  the gap `CoreInbound`'s javadoc used to describe: before this, a host-supplied
+  `ProtocolHandle`'s inbound bytes were re-injected onto the bus with nowhere to
+  go.
 
 ### Out-of-process: `HttpCoreClient`
 

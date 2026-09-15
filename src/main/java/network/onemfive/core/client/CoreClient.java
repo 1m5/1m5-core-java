@@ -39,6 +39,16 @@ public interface CoreClient {
      */
     CoreInbound registerProtocol(ProtocolHandle handle);
 
+    /**
+     * Register the app's own inbox for a business channel (e.g. {@code
+     * "messaging"}): {@code handler} is called whenever a {@link Msg}'s slip
+     * terminates at {@code channel} - this app is the final destination, not a
+     * relay hop. The counterpart to {@link #registerProtocol}: there, the host
+     * hands the core inbound bytes; here, the core hands the host a finished
+     * message. Returns whether registration completed.
+     */
+    boolean registerChannel(String channel, CoreInbound handler);
+
     /** Block until the named channels are ready, or the timeout elapses. No channels named: return immediately. */
     boolean awaitReady(long timeoutMs, String... channels);
 
