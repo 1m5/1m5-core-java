@@ -2,6 +2,7 @@ package network.onemfive.core.client;
 
 import network.onemfive.core.Core;
 import network.onemfive.core.business.BitcoinService;
+import network.onemfive.core.business.NostrService;
 import network.onemfive.core.identity.IdentityService;
 import network.onemfive.core.protocol.HttpProtocolService;
 import network.onemfive.core.protocol.I2PProtocolService;
@@ -29,8 +30,8 @@ import java.util.logging.Logger;
  *
  * <p>Registration mirrors {@link network.onemfive.core.Daemon#onBusStarted}:
  * {@link IdentityService} and {@link RoutingService} always; {@link I2PProtocolService},
- * {@link TorProtocolService}, {@link HttpProtocolService}, {@link BitcoinService} each
- * behind their own {@code 1m5.<name>.enabled} flag. A host that supplies its own
+ * {@link TorProtocolService}, {@link HttpProtocolService}, {@link BitcoinService},
+ * {@link NostrService} each behind their own {@code 1m5.<name>.enabled} flag. A host that supplies its own
  * transports (Android) simply leaves those flags unset and calls
  * {@link #registerProtocol(ProtocolHandle)} instead.
  */
@@ -55,6 +56,7 @@ public final class EmbeddedCoreClient implements CoreClient {
         if (flag("1m5.tor.enabled")) Core.get().registerService(TorProtocolService.class);
         if (flag("1m5.http.enabled")) Core.get().registerService(HttpProtocolService.class);
         if (flag("1m5.bitcoin.enabled")) Core.get().registerService(BitcoinService.class);
+        if (flag("1m5.nostr.enabled")) Core.get().registerService(NostrService.class);
         return true;
     }
 
